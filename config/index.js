@@ -41,6 +41,7 @@ const envVarsSchema = Joi.object({
   }).messages({ 'any.required': 'FACEBOOK_CLIENT_SECRET is required for Facebook OAuth in development/production.' }),
   CORS_ALLOWED_ORIGINS: Joi.string().optional().allow(''), // Validated as string, processed later
   REFRESH_TOKEN_EXPIRATION_SECONDS: Joi.number().integer().positive().default(7 * 24 * 60 * 60), // 7 days in seconds
+  LOG_LEVEL: Joi.string().valid('error', 'warn', 'info', 'http', 'verbose', 'debug', 'silly').default('info'),
 })
 .unknown(true); // Allow other environment variables not defined in the schema
 
@@ -94,6 +95,14 @@ if (envVars.CORS_ALLOWED_ORIGINS && typeof envVars.CORS_ALLOWED_ORIGINS === 'str
  * @property {string} facebookClientId - Facebook App ID for OAuth.
  * @property {string} facebookClientSecret - Facebook App Secret for OAuth.
  * @property {string[]} corsAllowedOrigins - Array of allowed origins for CORS.
+ * @property {number} refreshTokenExpirationSeconds - Expiration time for refresh tokens in seconds.
+ * @property {string} logLevel - The configured logging level for Winston.
+ * @property {Array<object>} oauthProviders - Array of configured and enabled OAuth provider settings.
+ * @property {string} oauthProviders[].name - Name of the OAuth provider (e.g., 'google').
+ * @property {string} oauthProviders[].strategyModulePath - Path to the strategy configuration module.
+ * @property {object} oauthProviders[].options - Options for the Passport strategy (clientID, clientSecret, callbackURL, scope, etc.).
+ * @property {string} oauthProviders[].authPath - Path for initiating authentication (e.g., '/auth/google').
+ * @property {string} oauthProviders[].callbackPath - Path for the OAuth callback (e.g., '/auth/google/callback').
  */
 module.exports = {
   nodeEnv: envVars.NODE_ENV,
@@ -105,4 +114,49 @@ module.exports = {
   facebookClientSecret: envVars.FACEBOOK_CLIENT_SECRET,
   corsAllowedOrigins: processedCorsOrigins,
   refreshTokenExpirationSeconds: envVars.REFRESH_TOKEN_EXPIRATION_SECONDS,
+  logLevel: envVars.LOG_LEVEL,
+  // OAuth Provider Configurations
+  oauthProviders: [
+    {
+      name: 'google',
+      strategyModulePath: '../auth/strategies/googleStrategy', // Path for dynamic require in passportSetup
+      options: {
+        clientID: envVars.GOOGLE_CLIENT_ID,
+        clientSecret: envVars.GOOGLE_CLIENT_SECRET,
+        callbackURL: '/auth/google/callback', // Relative path, will be prefixed by app's base URL
+        scope: ['profile', 'email'],
+      },
+      isEnabled: !!envVars.GOOGLE_CLIENT_ID && !!envVars.GOOGLE_CLIENT_SECRET,
+      authPath: '/auth/google', // For generating routes
+      callbackPath: '/auth/google/callback' // For generating routes
+    },
+    {
+      name: 'facebook',
+      strategyModulePath: '../auth/strategies/facebookStrategy',
+      options: {
+        clientID: envVars.FACEBOOK_CLIENT_ID,
+        clientSecret: envVars.FACEBOOK_CLIENT_SECRET,
+        callbackURL: '/auth/facebook/callback',
+        scope: ['email', 'public_profile'], // Note: Facebook's scope is an array of strings
+        profileFields: ['id', 'displayName', 'emails', 'photos'], // Facebook specific
+      },
+      isEnabled: !!envVars.FACEBOOK_CLIENT_ID && !!envVars.FACEBOOK_CLIENT_SECRET,
+      authPath: '/auth/facebook',
+      callbackPath: '/auth/facebook/callback'
+    },
+    // Example for GitHub (stubbed, would require GITHUB_CLIENT_ID/SECRET in env and schema)
+    // {
+    //   name: 'github',
+    //   strategyModulePath: '../auth/strategies/githubStrategy',
+    //   options: {
+    //     clientID: envVars.GITHUB_CLIENT_ID,
+    //     clientSecret: envVars.GITHUB_CLIENT_SECRET,
+    //     callbackURL: '/auth/github/callback',
+    //     scope: ['user:email'],
+    //   },
+    //   isEnabled: !!envVars.GITHUB_CLIENT_ID && !!envVars.GITHUB_CLIENT_SECRET,
+    //   authPath: '/auth/github',
+    //   callbackPath: '/auth/github/callback'
+    // },
+  ].filter(p => p.isEnabled), // Filter out disabled providers before exporting
 };

@@ -6,10 +6,33 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "test": "jest",
+    "test": "jest --coverage --runInBand",
     "lint": "./node_modules/.bin/eslint . --fix",
     "format": "npx prettier --write \"**/*.{js,jsx,ts,tsx,json,md,yaml,yml}\"",
     "setup": "node scripts/setup.js"
+  },
+  "jest": {
+    "collectCoverage": true,
+    "coverageReporters": [
+      "json",
+      "lcov",
+      "text",
+      "clover",
+      "html"
+    ],
+    "coverageDirectory": "coverage",
+    "collectCoverageFrom": [
+      "src/**/*.js",
+      "!src/server.js",
+      "!src/config/**",
+      "!src/adapters/mongoUserAdapter.js",
+      "!src/adapters/postgresUserAdapter.js",
+      "!**/node_modules/**"
+    ],
+    "testEnvironment": "node",
+    "setupFilesAfterEnv": [
+      "./tests/setup.js"
+    ]
   },
   "repository": {
     "type": "git",
@@ -37,11 +60,14 @@
     "express-rate-limit": "^7.5.0",
     "helmet": "^8.1.0",
     "joi": "^17.13.3",
+    "js-yaml": "^4.1.0",
     "jsonwebtoken": "^9.0.2",
     "nodemon": "^3.1.10",
     "passport": "^0.7.0",
     "passport-facebook": "^3.0.0",
-    "passport-google-oauth20": "^2.0.0"
+    "passport-google-oauth20": "^2.0.0",
+    "swagger-ui-express": "^5.0.1",
+    "winston": "^3.17.0"
   },
   "devDependencies": {
     "cross-env": "^7.0.3",

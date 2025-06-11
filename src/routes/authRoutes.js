@@ -2,113 +2,79 @@
 const express = require('express');
 const passport = require('passport');
 const router = express.Router();
+const { oauthProviders } = require('../../config'); // Import configured providers
+const logger = require('../../config/logger'); // Import logger
 
 /**
- * @fileoverview Authentication routes for Google and Facebook OAuth.
+ * @fileoverview Dynamically generates OAuth authentication routes.
+ * Also includes fixed routes for token refresh, logout, and login failure.
  */
 
-/**
- * @route GET /auth/google
- * @description Initiates Google OAuth 2.0 authentication flow.
- * Redirects the user to Google's consent screen.
- * @access Public
- */
-router.get(
-  '/google',
-  passport.authenticate('google', {
-    scope: ['profile', 'email'], // Must match scope in googleStrategy.js
-    session: false, // No session for API
-  })
-);
-
-/**
- * @route GET /auth/google/callback
- * @description Handles the callback from Google after authentication.
- * If authentication is successful, it receives user and token from the Google strategy.
- * Responds with a JWT.
- * If authentication fails, it redirects to a (conceptual) login failure page or returns an error.
- * @access Public
- */
-router.get('/google/callback', (req, res, next) => {
-  passport.authenticate(
-    'google',
-    { session: false, failureRedirect: '/auth/login-failure' },
-    (err, data, info) => {
-      if (err) {
-        console.error('Google OAuth callback error:', err);
-        return res
-          .status(500)
-          .json({ message: 'Authentication failed during Google callback.', error: err.message });
-      }
-      if (!data || !data.accessToken) { // Check for accessToken
-        // This case might happen if 'done' was called with (null, false) or without a token
-        const message =
-          info && info.message
-            ? info.message
-            : 'Authentication failed. No access token received from Google strategy.';
-        console.warn('Google OAuth callback - no access token:', info);
-        return res.status(401).json({ message });
-      }
-      // data = { user, accessToken, refreshToken } from googleStrategy
-      res.json({
-        message: 'Google authentication successful!',
-        accessToken: data.accessToken, // Send accessToken
-        refreshToken: data.refreshToken, // Send refreshToken
-        user: data.user, // Optionally return user details
-      });
+// Dynamically create OAuth initiation and callback routes
+if (oauthProviders && Array.isArray(oauthProviders)) {
+  oauthProviders.forEach(provider => {
+    if (!provider.name || !provider.authPath || !provider.callbackPath || !provider.options) {
+      logger.warn(`Skipping invalid OAuth provider configuration: ${JSON.stringify(provider)}`);
+      return;
     }
-  )(req, res, next);
-});
 
-/**
- * @route GET /auth/facebook
- * @description Initiates Facebook OAuth 2.0 authentication flow.
- * Redirects the user to Facebook's consent screen.
- * @access Public
- */
-router.get(
-  '/facebook',
-  passport.authenticate('facebook', {
-    scope: ['email', 'public_profile'], // Adjust scope as needed, ensure it matches facebookStrategy.js
-    session: false, // No session for API
-  })
-);
+    logger.info(`Creating OAuth routes for provider: ${provider.name}`);
 
-/**
- * @route GET /auth/facebook/callback
- * @description Handles the callback from Facebook after authentication.
- * Responds with a JWT.
- * @access Public
- */
-router.get('/facebook/callback', (req, res, next) => {
-  passport.authenticate(
-    'facebook',
-    { session: false, failureRedirect: '/auth/login-failure' },
-    (err, data, info) => {
-      if (err) {
-        console.error('Facebook OAuth callback error:', err);
-        return res
-          .status(500)
-          .json({ message: 'Authentication failed during Facebook callback.', error: err.message });
+    /**
+     * @route GET /auth/:providerName
+     * @description Initiates OAuth 2.0 authentication flow for the specified provider.
+     * Redirects the user to the provider's consent screen.
+     * @access Public
+     */
+    router.get(
+      `/${provider.name}`, // Use just provider.name for relative path from /auth
+      passport.authenticate(provider.name, {
+        scope: provider.options.scope,
+        session: false,
+        ...(provider.options.customParams || {}) // For any extra params if needed by strategy
+      })
+    );
+
+    /**
+     * @route GET /auth/:providerName/callback
+     * @description Handles the callback from the OAuth provider after authentication.
+     * Responds with JWTs (access and refresh) and user information.
+     * @access Public
+     */
+    router.get(
+      `/${provider.name}/callback`, // Use just provider.name for relative path from /auth
+      (req, res, next) => {
+        passport.authenticate(
+          provider.name,
+          { session: false, failureRedirect: '/auth/login-failure' }, // failureRedirect assumes /auth prefix
+          (err, data, info) => { // data here is { user, accessToken, refreshToken } from strategy
+            if (err) {
+              logger.error(`${provider.name} OAuth callback error:`, { provider: provider.name, error: err.message, stack: err.stack });
+              return res.status(500).json({
+                message: `Authentication failed during ${provider.name} callback.`,
+                error: err.message,
+              });
+            }
+            if (!data || !data.accessToken) {
+              const message = (info && info.message)
+                ? info.message
+                : `Authentication failed. No access token received from ${provider.name} strategy.`;
+              logger.warn(`${provider.name} OAuth callback - no access token:`, { provider: provider.name, info });
+              return res.status(401).json({ message });
+            }
+            res.json({
+              message: `${provider.name.charAt(0).toUpperCase() + provider.name.slice(1)} authentication successful!`,
+              accessToken: data.accessToken,
+              refreshToken: data.refreshToken,
+              user: data.user,
+            });
+          }
+        )(req, res, next);
       }
-      if (!data || !data.accessToken) { // Check for accessToken
-        const message =
-          info && info.message
-            ? info.message
-            : 'Authentication failed. No access token received from Facebook strategy.';
-        console.warn('Facebook OAuth callback - no access token:', info);
-        return res.status(401).json({ message });
-      }
-      // data = { user, accessToken, refreshToken } from facebookStrategy
-      res.json({
-        message: 'Facebook authentication successful!',
-        accessToken: data.accessToken, // Send accessToken
-        refreshToken: data.refreshToken, // Send refreshToken
-        user: data.user, // Optionally return user details
-      });
-    }
-  )(req, res, next);
-});
+    );
+  });
+}
+
 
 /**
  * @route GET /auth/login-failure
@@ -124,10 +90,11 @@ router.get('/login-failure', (req, res) => {
 
 module.exports = router;
 
-const jwt = require('jsonwebtoken');
-const { jwtSecret, refreshTokenExpirationSeconds, nodeEnv: currentEnv } = require('../../config'); // Assuming root config
-const { findUserById, isRefreshTokenValid, removeRefreshToken, addRefreshTokenToUser } = require('../auth/mockUserStore');
-const { generateAccessToken, generateRefreshToken } = require('../auth/tokenUtils'); // Get individual token generators
+const authService = require('../services/authService');
+// const jwt = require('jsonwebtoken'); // No longer directly used here
+// const { jwtSecret, refreshTokenExpirationSeconds, nodeEnv: currentEnv } = require('../../config'); // Used by authService
+// const { findUserById, isRefreshTokenValid, removeRefreshToken, addRefreshTokenToUser } = require('../auth/mockUserStore'); // Used by authService/userService
+// const { generateAccessToken, generateRefreshToken } = require('../auth/tokenUtils'); // Moved to authService
 
 
 // ... (existing GET routes for /google, /facebook, /login-failure) ...
@@ -147,53 +114,24 @@ router.post('/refresh', async (req, res) => {
   }
 
   try {
-    // 1. Verify the refresh token's signature and structure
-    const decoded = jwt.verify(providedRefreshToken, jwtSecret, { ignoreExpiration: false }); // Let it throw on expired
-
-    // 2. Check type claim
-    if (decoded.type !== 'refresh') {
-      return res.status(401).json({ message: 'Invalid token type. Expected refresh token.' });
-    }
-
-    // 3. Validate against store: Check if this refresh token is active for the user
-    const userId = decoded.sub;
-    const isValidInStore = await isRefreshTokenValid(userId, providedRefreshToken);
-
-    if (!isValidInStore) {
-      // This could mean the token was already used (if rolling) or revoked.
-      return res.status(401).json({ message: 'Refresh token not recognized or has been invalidated.' });
-    }
-
-    // 4. (Security Enhancement - Rolling Refresh Tokens) Invalidate the used refresh token
-    await removeRefreshToken(userId, providedRefreshToken);
-
-    // 5. Issue a new access token
-    const user = await findUserById(userId);
-    if (!user) {
-      return res.status(401).json({ message: 'User not found for refresh token.' });
-    }
-    // Use ACCESS_TOKEN_EXPIRATION_SECONDS from tokenUtils.js logic
-    const accessTokenExpiration = (currentEnv === 'test' ? 5 * 60 : 15 * 60);
-    const newAccessToken = generateAccessToken(user, jwtSecret, accessTokenExpiration);
-
-    // 6. Issue a new refresh token
-    const newRefreshToken = generateRefreshToken(user, jwtSecret, refreshTokenExpirationSeconds);
-    await addRefreshTokenToUser(userId, newRefreshToken);
-
+    const { accessToken, refreshToken } = await authService.refreshAuthTokens(providedRefreshToken);
     res.json({
       message: 'Tokens refreshed successfully.',
-      accessToken: newAccessToken,
-      refreshToken: newRefreshToken,
+      accessToken: accessToken,
+      refreshToken: refreshToken,
     });
-
   } catch (error) {
-    if (error.name === 'TokenExpiredError') {
+    // authService will throw errors with status if applicable, or generic errors
+    if (error.status) {
+      return res.status(error.status).json({ message: error.message });
+    }
+    if (error.name === 'TokenExpiredError') { // Still catch JWT specific errors if authService doesn't abstract them
       return res.status(401).json({ message: 'Refresh token expired. Please log in again.' });
     }
     if (error.name === 'JsonWebTokenError') {
       return res.status(401).json({ message: 'Invalid refresh token.' });
     }
-    console.error('Error during token refresh:', error);
+    logger.error('Error during token refresh:', { message: error.message, stack: error.stack });
     return res.status(500).json({ message: 'Could not refresh token.' });
   }
 });
@@ -213,41 +151,22 @@ router.post('/logout', async (req, res) => {
   }
 
   try {
-    // 1. Verify token structure and signature. Expiry can be ignored for logout,
-    // as we want to invalidate it even if it's already expired (to clean up store).
-    // However, to get the 'sub' (userId) reliably, it must be a valid JWT.
-    // If it's structurally invalid, we can't trust its 'sub' claim.
-    const decoded = jwt.verify(providedRefreshToken, jwtSecret, { ignoreExpiration: true }); // Ignore expiration for logout's purpose of finding user ID
-
-    // 2. Check type claim
-    if (decoded.type !== 'refresh') {
-      // We could choose to ignore this if any "our" token should be removable,
-      // but for strictness on /logout for refresh tokens:
-      return res.status(401).json({ message: 'Invalid token type. Expected refresh token for logout.' });
-    }
-
-    const userId = decoded.sub;
-
-    // 3. Attempt to remove the refresh token from the store.
-    // isRefreshTokenValid check is implicitly handled by removeRefreshToken:
-    // if it's not there, removeRefreshToken will return false.
-    const removed = await removeRefreshToken(userId, providedRefreshToken);
-
+    const removed = await authService.logoutUser(providedRefreshToken);
     if (removed) {
       res.status(200).json({ message: 'Logout successful. Refresh token invalidated.' });
     } else {
-      // This could mean the token was already invalidated, expired and cleaned up, or never existed.
-      // For logout, it's fine to just say it's done or effectively done.
+      // If authService.logoutUser returns false, it means token was not found/removed (already invalid)
       res.status(200).json({ message: 'Logout successful or token already invalidated.' });
     }
-
   } catch (error) {
-    // If token is malformed or signature is invalid, we can't trust its claims.
-    if (error.name === 'JsonWebTokenError') {
+    // authService will throw errors with status if applicable
+    if (error.status) {
+        return res.status(error.status).json({ message: error.message });
+    }
+    if (error.name === 'JsonWebTokenError') { // Still catch JWT specific errors
       return res.status(401).json({ message: 'Invalid refresh token format.' });
     }
-    // For other errors (e.g., unexpected issues)
-    console.error('Error during logout:', error);
+    logger.error('Error during logout:', { message: error.message, stack: error.stack });
     return res.status(500).json({ message: 'Could not process logout.' });
   }
 });

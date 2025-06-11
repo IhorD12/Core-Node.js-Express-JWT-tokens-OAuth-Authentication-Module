@@ -2,8 +2,11 @@
 const request = require('supertest');
 const app = require('../../src/app'); // Our Express app
 const passport = require('passport'); // The mocked passport
-const { clearUsers, findUserByProfileId } = require('../../src/auth/mockUserStore'); // To check user creation
-const { generateToken } = require('../../src/auth/tokenUtils'); // To create valid tokens for other tests if needed
+const MockUserStore = require('../../src/auth/mockUserStore'); // Import the class
+const userService = require('../../src/services/userService'); // For findUserByProfileId
+const authService = require('../../src/services/authService'); // For generateToken (deprecated) or other auth needs
+
+const userStoreInstance = new MockUserStore(); // Instance for test utilities like clearAllUsers
 
 describe('Auth Routes Integration Tests', () => {
   let server;
@@ -26,8 +29,8 @@ describe('Auth Routes Integration Tests', () => {
     done();
   });
 
-  beforeEach(() => {
-    clearUsers(); // Clear mock user store before each test
+     beforeEach(async () => { // Make beforeEach async
+       await userStoreInstance.clearAllUsers(); // Use instance method
     passport.authenticate.mockReset(); // Reset passport mock before each test
   });
 
@@ -97,7 +100,7 @@ describe('Auth Routes Integration Tests', () => {
       expect(response.body.user).toEqual(mockUser);
 
       // Verify user was created in mock store
-      const userInStore = await findUserByProfileId(mockGoogleProfile.id, 'google');
+         const userInStore = await userService.findUserByProfileId(mockGoogleProfile.id, 'google');
       // Note: Our current mockUserStore in the test setup doesn't actually get populated by the
       // mocked strategy. The strategy itself (googleStrategy.js) is not being run here, only its callback.
       // To test user creation properly, we'd need a more sophisticated mock or to test the strategy directly.

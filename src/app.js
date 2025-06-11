@@ -5,8 +5,14 @@ const cors = require('cors'); // Import cors
 const { nodeEnv, port, corsAllowedOrigins } = require('../config'); // Import cors config and other vars
 const initializePassport = require('./auth/passportSetup');
 const rateLimit = require('express-rate-limit');
+const logger = require('../config/logger'); // Import logger
+const swaggerUi = require('swagger-ui-express');
+const YAML = require('js-yaml');
+const fs = require('fs');
+const path = require('path');
 const authRoutes = require('./routes/authRoutes');
 const profileRoutes = require('./routes/profileRoutes'); // Ensure this is correctly named if it's /auth/profile
+const healthRoutes = require('./routes/healthRoutes'); // Import health routes
 
 /**
  * @fileoverview Main application file for the Express server.
@@ -18,6 +24,7 @@ const app = express();
 // --- Pre-Middleware Setup ---
 // Load environment variables (already done by './config' an initial load)
 // console.log(`NODE_ENV: ${nodeEnv}`); // For debugging
+logger.info(`App running in ${nodeEnv} mode. Log level: ${logger.level}`);
 
 // --- Core Middleware ---
 app.use(helmet());
@@ -64,7 +71,28 @@ app.use(express.urlencoded({ extended: true }));
 // This function should call app.use(passport.initialize()) internally.
 initializePassport(app);
 
+// --- Swagger/OpenAPI Documentation ---
+try {
+  const openApiPath = path.join(__dirname, '../../docs/openapi.yaml'); // Path to your openapi.yaml
+  if (fs.existsSync(openApiPath)) {
+    const swaggerDocument = YAML.load(fs.readFileSync(openApiPath, 'utf8'));
+    const swaggerOptions = {
+      // explorer: true, // Enable search bar
+      // customCss: '.swagger-ui .topbar { display: none }', // Example: hide top bar
+      // customSiteTitle: "My API Documentation",
+    };
+    app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, swaggerOptions));
+    logger.info('Swagger UI setup at /api-docs, serving from docs/openapi.yaml');
+  } else {
+    logger.warn('docs/openapi.yaml not found. Swagger UI will not be available.');
+  }
+} catch (e) {
+  logger.error('Failed to load or parse openapi.yaml for Swagger UI:', { message: e.message, stack: e.stack });
+}
+
 // --- Application Routes ---
+app.use('/health', healthRoutes); // Mount health check routes
+
 // Mount authentication routes (e.g., /auth/google, /auth/facebook)
 app.use('/auth', authRoutes);
 // Mount profile routes (e.g., /auth/profile)
