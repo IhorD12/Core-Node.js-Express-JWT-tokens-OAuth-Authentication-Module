@@ -4,10 +4,19 @@
  * Interacts with a user data layer that implements the UserStoreAdapter interface.
  */
 
-const MockUserStore = require('../auth/mockUserStore'); // Import the concrete implementation for current use
-// In a real app, the store instance might be injected or resolved via a DI container.
-// For this iteration, we instantiate it directly.
-const userStore = new MockUserStore();
+const { userStoreType } = require('../../config');
+const MockUserStore = require('../auth/mockUserStore');
+const MongoUserAdapter = require('../adapters/mongoUserAdapter');
+const PostgresUserAdapter = require('../adapters/postgresUserAdapter');
+
+let userStore;
+if (userStoreType === 'mongodb') {
+  userStore = new MongoUserAdapter();
+} else if (userStoreType === 'postgres') {
+  userStore = new PostgresUserAdapter();
+} else { // Default to mock store
+  userStore = new MockUserStore();
+}
 
 /**
  * Finds a user by their internal ID.

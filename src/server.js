@@ -5,8 +5,10 @@
  * Includes graceful shutdown logic.
  */
 const app = require('./app');
-const { port, nodeEnv } = require('../config');
+const { port, nodeEnv, mongoUri, userStoreType } = require('../config'); // Added mongoUri and userStoreType
 const logger = require('../config/logger'); // Correct path from src/server.js to src/config/logger.js
+const mongoose = require('mongoose'); // Required for MongoDB disconnection
+const PostgresUserAdapter = require('../adapters/postgresUserAdapter'); // For PostgreSQL disconnection
 
 const PORT = port || 3000;
 let server; // To store the server instance
@@ -39,14 +41,38 @@ const gracefulShutdown = (signal) => {
     server.close((err) => {
       if (err) {
         logger.error('Error during server close:', err);
-        process.exit(1); // Exit with error if server.close itself errors
-        return;
+        // process.exit(1); // Don't exit yet, try to close DB
+      } else {
+        logger.info('HTTP server closed.');
       }
-      logger.info('HTTP server closed. All connections gracefully terminated.');
-      // Perform other cleanup here if needed (e.g., database connections)
-      // For mockUserStore, no specific cleanup is needed.
-      logger.info('Application shut down successfully.');
-      process.exit(0); // Exit successfully
+
+      // Close database connection(s)
+      let dbClosedPromise = Promise.resolve();
+      if (userStoreType === 'mongodb') {
+        dbClosedPromise = mongoose.disconnect()
+          .then(() => logger.info('MongoDB connection closed successfully.'))
+          .catch(dbErr => {
+            logger.error('Error closing MongoDB connection:', dbErr);
+            // Potentially set a flag to indicate db close error for process.exit code
+            throw dbErr; // Re-throw to be caught by a final handler if needed
+          });
+      } else if (userStoreType === 'postgres') {
+        dbClosedPromise = PostgresUserAdapter.shutdownPool()
+          // shutdownPool already logs success/info
+          .catch(dbErr => {
+            logger.error('Error closing PostgreSQL pool:', dbErr);
+            throw dbErr;
+          });
+      }
+
+      dbClosedPromise.then(() => {
+        logger.info('Application shut down successfully.');
+        process.exit(err ? 1 : 0);
+      }).catch(() => {
+        // If any DB disconnection failed
+        logger.error('Database disconnection failed during shutdown. Forcing exit.');
+        process.exit(1);
+      });
     });
 
     // Force close server after a timeout (e.g., 10 seconds)
