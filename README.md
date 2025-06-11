@@ -1,5 +1,26 @@
 # Modular Node.js Authentication API
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Features](#features)
+- [Prerequisites](#prerequisites)
+- [Quick Start](#quick-start)
+- [Installation & Setup](#installation--setup)
+- [Environment Variables Configuration](#environment-variables-configuration)
+- [How the OAuth Flow Works](#how-the-oauth-flow-works)
+- [Running the Application](#running-the-application)
+- [Running Tests](#running-tests)
+- [Generating New Tokens](#generating-new-tokens)
+- [API Endpoints Overview](#api-endpoints-overview)
+- [OpenAPI Specification](#openapi-specification)
+- [Error Handling](#error-handling)
+- [Mock User Store](#mock-user-store)
+- [Contributing](#contributing)
+- [License](#license)
+
 ## Overview
 
 This project provides a robust and modular authentication API built with Node.js, Express, and Passport.js. It supports JWT (JSON Web Token) based authentication for protecting API endpoints and includes OAuth 2.0 integration for Google and Facebook login. The primary goal is to offer a secure and extensible authentication solution that can be easily integrated into various applications.
@@ -18,12 +39,24 @@ The API allows users to authenticate via third-party providers (Google, Facebook
 - **Protected Routes**: Example of a protected `/auth/profile` endpoint.
 - **Unit and Integration Tests**: Comprehensive test suite using Jest and Supertest.
 - **Clear Error Handling**: Standardized JSON error responses.
+- **OpenAPI Specification**: API documented using OpenAPI (Swagger) in the `docs/` directory.
+- **JSDoc Comments**: All major modules and functions are documented with JSDoc.
 
 ## Prerequisites
 
 - [Node.js](https://nodejs.org/) (version 14.x or later recommended)
 - [npm](https://www.npmjs.com/) (usually comes with Node.js)
 - Access to Google Cloud Console and Facebook for Developers to obtain OAuth credentials.
+
+## Quick Start
+
+```bash
+git clone <repository_url>
+cd <repository_directory_name>
+cp .env.example .env
+npm install
+npm run dev
+```
 
 ## Installation & Setup
 
@@ -143,9 +176,15 @@ Example response from `/auth/google/callback` or `/auth/facebook/callback`:
 ```
 You can then use this `token` in the `Authorization` header as a Bearer token to access protected endpoints.
 
+### Example: Accessing a Protected Route
+
+```bash
+curl -H "Authorization: Bearer <your_jwt_token>" http://localhost:3000/auth/profile
+```
+
 ## API Endpoints Overview
 
-A more detailed specification will be available via an OpenAPI document (see `docs/` directory, planned).
+A more detailed specification is available via an OpenAPI document (see [docs/openapi.yaml](docs/openapi.yaml)).
 
 -   **`GET /`**: Welcome message for the API.
 -   **`GET /auth/google`**: Initiates Google OAuth 2.0 authentication.
@@ -155,5 +194,37 @@ A more detailed specification will be available via an OpenAPI document (see `do
 -   **`GET /auth/login-failure`**: Endpoint for failed OAuth attempts (returns JSON error).
 -   **`GET /auth/profile`**: Protected route. Retrieves the profile of the authenticated user. Requires a valid JWT in the `Authorization: Bearer <token>` header.
 
----
-This README provides a comprehensive guide to understanding, setting up, and running the Modular Node.js Authentication API.
+## OpenAPI Specification
+
+See [`docs/openapi.yaml`](docs/openapi.yaml) for a full API specification compatible with Swagger UI.
+
+## Error Handling
+
+All errors are returned as JSON objects with a consistent structure:
+
+```json
+{
+  "error": "Invalid token",
+  "details": "JWT expired"
+}
+```
+
+Common error cases include:
+- Invalid or missing JWT token
+- Expired token
+- OAuth callback errors
+- Unauthorized access to protected routes
+
+## Mock User Store
+
+This project uses a simple in-memory user store for development and testing.  
+**To use a real database:**  
+Replace the logic in `auth/mockUserStore.js` with your preferred database implementation (e.g., MongoDB, PostgreSQL).
+
+## Contributing
+
+Pull requests are welcome! For major changes, please open an issue first to discuss what you would like to change.
+
+## License
+
+This project is licensed under the MIT License.
