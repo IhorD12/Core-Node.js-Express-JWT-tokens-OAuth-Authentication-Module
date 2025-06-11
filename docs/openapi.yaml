@@ -92,6 +92,10 @@ components:
         - displayName
         - email
         # roles are not required here as they might be added progressively or not present on all user objects
+        isTwoFactorEnabled: # Added 2FA field
+          type: boolean
+          description: Indicates if Two-Factor Authentication is enabled for the user.
+          example: false
 
     ProfileResponse:
       type: object
@@ -236,7 +240,98 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /auth/logout:
+
+  /auth/2fa/setup:
+    post:
+      summary: Setup 2FA
+      description: Initiates Two-Factor Authentication (TOTP) setup for the authenticated user. Returns OTP Auth URL and Base32 secret for QR code generation.
+      tags: [Authentication, Two-Factor Authentication]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 2FA setup information retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  otpAuthUrl:
+                    type: string
+                    format: uri
+                    example: "otpauth://totp/AppName:user@example.com?secret=BASE32SECRET&issuer=AppName"
+                  base32Secret:
+                    type: string
+                    example: "BASE32MOCKSECRET1234567890"
+        '401': { $ref: '#/components/responses/UnauthorizedError' } # Define reusable responses
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /auth/2fa/verify:
+    post:
+      summary: Verify 2FA Token
+      description: Verifies a TOTP token provided by the user. If successful during initial setup, enables 2FA.
+      tags: [Authentication, Two-Factor Authentication]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+                  description: The 6-8 digit TOTP token from the authenticator app.
+                  example: "123456"
+              required: [token]
+      responses:
+        '200':
+          description: 2FA token verified successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "2FA token verified successfully." # Or "2FA enabled successfully."
+        '400':
+          description: Invalid or missing TOTP token.
+          content: { $ref: '#/components/responses/BadRequestError' }
+        '401': { $ref: '#/components/responses/UnauthorizedError' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /auth/2fa/disable:
+    post:
+      summary: Disable 2FA
+      description: Disables Two-Factor Authentication for the authenticated user.
+      tags: [Authentication, Two-Factor Authentication]
+      security:
+        - BearerAuth: []
+      # requestBody: # Optional: Could require current TOTP or password
+      #   required: true
+      #   content:
+      #     application/json:
+      #       schema:
+      #         type: object
+      #         properties:
+      #           token: { type: string, description: "Current TOTP token, if required by policy." }
+      responses:
+        '200':
+          description: 2FA disabled successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "2FA disabled successfully."
+        '401': { $ref: '#/components/responses/UnauthorizedError' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /auth/logout: # Ensure logout is still present
     post:
       summary: Logout User
       description: Invalidates the provided refresh token on the server-side.
@@ -555,7 +650,26 @@ paths:
 # The AuthSuccessResponse also needs to be updated for accessToken/refreshToken split.
 
 # Corrected AuthSuccessResponse to include accessToken and refreshToken
-components:
+# components: # Adding reusable responses for cleaner error handling
+#   responses:
+#     UnauthorizedError:
+#       description: Unauthorized. Invalid or missing authentication token.
+#       content:
+#         application/json:
+#           schema:
+#             $ref: '#/components/schemas/ErrorResponse'
+#     BadRequestError:
+#       description: Bad Request. The request was malformed or missing required parameters.
+#       content:
+#         application/json:
+#           schema:
+#             $ref: '#/components/schemas/ErrorResponse'
+#     InternalServerError:
+#       description: Internal Server Error.
+#       content:
+#         application/json:
+#           schema:
+#             $ref: '#/components/schemas/ErrorResponse'
   schemas:
     AuthSuccessResponse: # This will override the previous definition if it's the last one parsed.
       type: object

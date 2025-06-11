@@ -47,6 +47,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Business logic moved from route handlers and Passport callbacks to the service layer.
 - Token generation utilities moved into `authService.js`.
 - `mockUserStore.js` refactored to implement `UserStoreAdapter` and focus on data storage simulation.
+    - **Entire Codebase**: Migrated from JavaScript to TypeScript for enhanced type safety, maintainability, and developer experience. This includes all source files in `src/`, `config/`, and `tests/`.
+    - Updated build process, Jest configuration (`ts-jest`), ESLint configuration, and npm scripts to support the TypeScript workflow.
+    - **2FA Design & Stubs**: Added design document (`docs/TWO_FACTOR_AUTHENTICATION.md`), stubbed `TwoFactorAuthService`, and placeholder API endpoints for TOTP-based Two-Factor Authentication. Updated user models/interfaces to include 2FA fields.
 
 ### Deprecated
 - `src/auth/tokenUtils.js` (functionality absorbed into `authService.js`).
