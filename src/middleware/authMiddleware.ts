@@ -37,7 +37,8 @@ export const verifyToken = (req: AuthenticatedRequest, res: Response, next: Next
       logger.error('JWT Authentication Strategy Error:', {
         message: err.message || err.toString(),
         stack: err.stack,
-        path: req.originalUrl
+        path: req.originalUrl,
+        ip: req.ip // Added client IP
       });
       return res.status(500).json({ message: 'Authentication error.', error: err.message });
     }

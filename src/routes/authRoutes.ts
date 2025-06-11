@@ -7,7 +7,10 @@ import logger from '@config/logger'; // Path alias
 import { AuthenticatedRequest } from '@src/types/express.d'; // Path alias
 import { AuthCallbackData, RefreshTokenRequestBody, LogoutRequestBody } from '@src/types/auth.d'; // Path alias
 import { verifyToken } from '@middleware/authMiddleware'; // For protecting 2FA routes
+import { validateRequestBody } from '@src/middleware/validationMiddleware'; // Path alias
+import { refreshTokenSchema, logoutTokenSchema, twoFactorVerifySchema } from '@src/validators/authValidators'; // Path alias
 import twoFactorAuthService, { TwoFactorSetupResponse } from '@services/twoFactorAuthService'; // Import 2FA service
+import { sensitiveOperationLimiter, createRateLimiterMiddleware } from '@config/rateLimiters'; // Import new rate limiters
 
 const router = Router();
 
@@ -26,10 +29,6 @@ if (config.oauthProviders && Array.isArray(config.oauthProviders)) {
 
     logger.info(`Creating OAuth routes for provider: ${provider.name}`);
 
-    /**
-     * @route GET /auth/:providerName
-     * @description Initiates OAuth 2.0 authentication flow for the specified provider.
-     */
     router.get(
       `/${provider.name}`,
       passport.authenticate(provider.name, {
@@ -39,16 +38,12 @@ if (config.oauthProviders && Array.isArray(config.oauthProviders)) {
       })
     );
 
-    /**
-     * @route GET /auth/:providerName/callback
-     * @description Handles the callback from the OAuth provider after authentication.
-     */
     router.get(
       `/${provider.name}/callback`,
-      (req: Request, res: Response, next: NextFunction) => { // Standard Request type here initially
+      (req: Request, res: Response, next: NextFunction) => {
         passport.authenticate(
           provider.name,
-          { session: false, failureRedirect: '/auth/login-failure' }, // failureRedirect assumes /auth prefix from app.js
+          { session: false, failureRedirect: '/auth/login-failure' },
           (err: any, data: AuthCallbackData | false, info: any) => {
             if (err) {
               logger.error(`${provider.name} OAuth callback error:`, { provider: provider.name, error: err.message, stack: err.stack });
@@ -57,17 +52,27 @@ if (config.oauthProviders && Array.isArray(config.oauthProviders)) {
                 error: err.message,
               });
             }
-            if (!data || !data.accessToken) {
+            if (!data || !data.accessToken || !data.refreshToken) { // Check for both tokens
               const message = (info && info.message)
                 ? info.message
-                : `Authentication failed. No access token received from ${provider.name} strategy.`;
-              logger.warn(`${provider.name} OAuth callback - no access token:`, { provider: provider.name, info });
+                : `Authentication failed. No tokens received from ${provider.name} strategy.`;
+              logger.warn(`${provider.name} OAuth callback - no tokens:`, { provider: provider.name, info });
               return res.status(401).json({ message });
             }
+
+            // Set refresh token in HTTP-only cookie
+            res.cookie(config.refreshTokenCookieName, data.refreshToken, {
+              httpOnly: true,
+              secure: config.nodeEnv === 'production',
+              sameSite: config.refreshTokenCookieSameSite,
+              path: '/auth', // Accessible to /auth/refresh, /auth/logout
+              maxAge: config.refreshTokenCookieMaxAge,
+            });
+
             res.json({
               message: `${provider.name.charAt(0).toUpperCase() + provider.name.slice(1)} authentication successful!`,
               accessToken: data.accessToken,
-              refreshToken: data.refreshToken,
+              // refreshToken: data.refreshToken, // Optionally omit from body if cookie is primary
               user: data.user,
             });
           }
@@ -77,39 +82,59 @@ if (config.oauthProviders && Array.isArray(config.oauthProviders)) {
   });
 }
 
-
-/**
- * @route GET /auth/login-failure
- * @description A conceptual route for handling OAuth login failures.
- */
 router.get('/login-failure', (req: Request, res: Response) => {
   res.status(401).json({ message: 'OAuth authentication failed. Please try again.' });
 });
 
+router.post(
+  '/refresh',
+  createRateLimiterMiddleware(sensitiveOperationLimiter), // Apply sensitive operation limiter
+  validateRequestBody(refreshTokenSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+  // req.body is validated, can be used directly if types align with RefreshTokenRequestBody
+  // or cast if Joi output 'value' is assigned back and has specific type.
+  // For this setup, Joi value is assigned back, so req.body is the validated object.
+  let providedRefreshToken = req.cookies[config.refreshTokenCookieName];
 
-/**
- * @route POST /auth/refresh
- * @description Renews an access token using a valid refresh token.
- */
-router.post('/refresh', async (req: Request, res: Response, next: NextFunction) => { // Standard Request
-  const { refreshToken: providedRefreshToken } = req.body as RefreshTokenRequestBody;
+  if (!providedRefreshToken && req.body && req.body.refreshToken) {
+    logger.debug('Refresh token not in cookie, using token from body.');
+    providedRefreshToken = (req.body as RefreshTokenRequestBody).refreshToken;
+  }
 
   if (!providedRefreshToken) {
-    return res.status(400).json({ message: 'Refresh token is required.' });
+    return res.status(400).json({ message: 'Refresh token is required (in cookie or body).' });
   }
 
   try {
-    const { accessToken, refreshToken: newRefreshToken } = await authService.refreshAuthTokens(providedRefreshToken);
+    const { accessToken, refreshToken: newRefreshToken } = await authService.refreshAuthTokens(providedRefreshToken, req.ip);
+
+    res.cookie(config.refreshTokenCookieName, newRefreshToken, {
+      httpOnly: true,
+      secure: config.nodeEnv === 'production',
+      sameSite: config.refreshTokenCookieSameSite,
+      path: '/auth',
+      maxAge: config.refreshTokenCookieMaxAge,
+    });
+
     res.json({
       message: 'Tokens refreshed successfully.',
       accessToken: accessToken,
-      refreshToken: newRefreshToken,
+      // refreshToken: newRefreshToken, // Optionally omit from body
     });
   } catch (error: any) {
-    if (error.status) { // Check for custom AuthError status
+    // Clear cookie if refresh token is invalid/expired and was provided via cookie
+    if (req.cookies[config.refreshTokenCookieName] && (error.status === 401 || error.name === 'TokenExpiredError' || error.name === 'JsonWebTokenError')) {
+        res.cookie(config.refreshTokenCookieName, '', {
+            httpOnly: true,
+            secure: config.nodeEnv === 'production',
+            sameSite: config.refreshTokenCookieSameSite,
+            path: '/auth',
+            expires: new Date(0),
+        });
+    }
+    if (error.status) {
       return res.status(error.status).json({ message: error.message });
     }
-    // Handle specific JWT errors that authService might re-throw or not catch
     if (error.name === 'TokenExpiredError') {
       return res.status(401).json({ message: 'Refresh token expired. Please log in again.' });
     }
@@ -121,63 +146,68 @@ router.post('/refresh', async (req: Request, res: Response, next: NextFunction) 
   }
 });
 
-/**
- * @route POST /auth/logout
- * @description Invalidates a refresh token.
- */
-router.post('/logout', async (req: Request, res: Response, next: NextFunction) => { // Standard Request
-  const { refreshToken: providedRefreshToken } = req.body as LogoutRequestBody;
+router.post(
+  '/logout',
+  validateRequestBody(logoutTokenSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+  let providedRefreshToken = req.cookies[config.refreshTokenCookieName];
+
+  if (!providedRefreshToken && req.body && req.body.refreshToken) {
+    logger.debug('Logout: Refresh token not in cookie, using token from body.');
+    providedRefreshToken = (req.body as LogoutRequestBody).refreshToken;
+  }
+
+  // Clear cookie regardless of whether token was found in store or valid, as client wants to logout
+  res.cookie(config.refreshTokenCookieName, '', {
+    httpOnly: true,
+    secure: config.nodeEnv === 'production',
+    sameSite: config.refreshTokenCookieSameSite,
+    path: '/auth',
+    expires: new Date(0),
+  });
 
   if (!providedRefreshToken) {
-    return res.status(400).json({ message: 'Refresh token is required to logout.' });
+    // If no token anywhere, still a "successful" logout from client perspective
+    return res.status(200).json({ message: 'Logout successful. No active refresh token session to invalidate.' });
   }
 
   try {
-    const removed = await authService.logoutUser(providedRefreshToken);
-    if (removed) {
-      res.status(200).json({ message: 'Logout successful. Refresh token invalidated.' });
-    } else {
-      res.status(200).json({ message: 'Logout successful or token already invalidated.' });
-    }
+    await authService.logoutUser(providedRefreshToken, req.ip);
+    // Message implies server-side invalidation success or that it was already invalid
+    res.status(200).json({ message: 'Logout successful. Refresh token invalidated or was already inactive.' });
   } catch (error: any) {
-    if (error.status) { // Check for custom AuthError status
+    // Even if logoutUser fails (e.g. malformed token from body), cookie is cleared.
+    // This error primarily reflects issues with the token from body if cookie wasn't present.
+    if (error.status) {
         return res.status(error.status).json({ message: error.message });
     }
     if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({ message: 'Invalid refresh token format.' });
+      return res.status(401).json({ message: 'Invalid refresh token format provided for logout.' });
     }
-    logger.error('Error during logout:', { message: error.message, stack: error.stack });
-    return res.status(500).json({ message: 'Could not process logout.' });
+    logger.error('Error during logout processing:', { message: error.message, stack: error.stack });
+    // Don't send 500 for logout if cookie clear was main goal for client.
+    // But if token from body was processed and failed, it's a specific error.
+    res.status(200).json({ message: 'Logout processed. Token from body might have been invalid.' });
   }
 });
 
 
 // --- Two-Factor Authentication Routes ---
-
-/**
- * @route POST /auth/2fa/setup
- * @description Initiates 2FA setup for the authenticated user.
- * @access Private (Authenticated)
- */
+// ... (2FA routes remain unchanged for this subtask) ...
 router.post('/2fa/setup', verifyToken, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
-    if (!req.user) { // Should be caught by verifyToken, but good practice
+    if (!req.user) {
       return res.status(401).json({ message: 'User not authenticated.' });
     }
+    // setup doesn't take clientIp as it's user-initiated for their own account, less of a security log focus for IP for this action.
     const setupInfo: TwoFactorSetupResponse = await twoFactorAuthService.setup(req.user);
     res.json(setupInfo);
   } catch (error: any) {
-    logger.error('2FA setup error:', { userId: req.user?.id, message: error.message, stack: error.stack });
-    next(error); // Pass to global error handler
+    logger.error('2FA setup error:', { userId: req.user?.id, ip: req.ip, message: error.message, stack: error.stack });
+    next(error);
   }
 });
 
-/**
- * @route POST /auth/2fa/verify
- * @description Verifies a TOTP token to enable 2FA or as a second factor.
- * @access Private (Authenticated)
- * @body { "token": "string" }
- */
 router.post('/2fa/verify', verifyToken, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const { token } = req.body;
   if (!req.user) {
@@ -188,36 +218,28 @@ router.post('/2fa/verify', verifyToken, async (req: AuthenticatedRequest, res: R
   }
 
   try {
-    const isValid = await twoFactorAuthService.verifyToken(req.user, token as string);
+    const isValid = await twoFactorAuthService.verifyToken(req.user, token as string, req.ip);
     if (isValid) {
-      // If this was the first verification after setup, the service method would have set isTwoFactorEnabled = true.
-      res.json({ message: '2FA token verified successfully.' }); // Or '2FA enabled successfully.'
+      res.json({ message: '2FA token verified successfully.' });
     } else {
       res.status(400).json({ message: 'Invalid 2FA token.' });
     }
   } catch (error: any) {
-    logger.error('2FA verification error:', { userId: req.user.id, message: error.message, stack: error.stack });
+    logger.error('2FA verification error:', { userId: req.user.id, ip: req.ip, message: error.message, stack: error.stack });
     next(error);
   }
 });
 
-/**
- * @route POST /auth/2fa/disable
- * @description Disables 2FA for the authenticated user.
- * @access Private (Authenticated)
- * @body { "token": "string" } (Optional: might require current TOTP or password for disabling)
- */
 router.post('/2fa/disable', verifyToken, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-  // const { currentTokenOrPassword } = req.body; // Optional: verify current access before disabling
   if (!req.user) {
     return res.status(401).json({ message: 'User not authenticated.' });
   }
 
   try {
-    await twoFactorAuthService.disable(req.user);
+    await twoFactorAuthService.disable(req.user, req.ip);
     res.json({ message: '2FA disabled successfully.' });
   } catch (error: any) {
-    logger.error('2FA disable error:', { userId: req.user.id, message: error.message, stack: error.stack });
+    logger.error('2FA disable error:', { userId: req.user.id, ip: req.ip, message: error.message, stack: error.stack });
     next(error);
   }
 });
