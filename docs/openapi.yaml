@@ -79,12 +79,19 @@ components:
           nullable: true
           description: URL to the user's profile picture.
           example: https://lh3.googleusercontent.com/a/AATXAJz...
+        roles: # Added roles to UserProfile schema
+          type: array
+          items:
+            type: string
+          description: Roles assigned to the user.
+          example: ["user", "admin"]
       required:
         - id
         - provider
         - providerId
         - displayName
         - email
+        # roles are not required here as they might be added progressively or not present on all user objects
 
     ProfileResponse:
       type: object
@@ -134,10 +141,138 @@ paths:
       tags:
         - Authentication
       responses:
-        '302': # Or other redirect status, though our test mock returns 200 for simplicity
-          description: Redirect to Google's OAuth server. (Actual response is a redirect)
+        '302':
+          description: Redirect to Google's OAuth server.
         '500':
           description: Server error during OAuth initiation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/admin/dashboard:
+    get:
+      summary: Get Admin Dashboard Data (Example)
+      description: Retrieves data for an admin dashboard. Requires JWT authentication and 'admin' role.
+      tags:
+        - Admin
+        - User Profile
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Admin dashboard data retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Welcome to the Admin Dashboard!
+                  adminDetails:
+                    type: object
+                    properties:
+                      userId: { type: string }
+                      email: { type: string, format: email }
+                      roles: { type: array, items: { type: string } }
+                    example:
+                      userId: "some-admin-user-id"
+                      email: "admin@example.com"
+                      roles: ["admin", "user"]
+        '401':
+          description: Unauthorized (e.g., token missing, invalid, expired).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden (e.g., user does not have 'admin' role).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/refresh:
+    post:
+      summary: Refresh Access Token
+      description: Exchanges a valid refresh token for a new access token and a new refresh token.
+      tags:
+        - Token Management
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: Tokens refreshed successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSuccessResponse'
+        '400':
+          description: Bad Request (e.g., refresh token missing).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized (e.g., refresh token invalid, expired, or revoked).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /auth/logout:
+    post:
+      summary: Logout User
+      description: Invalidates the provided refresh token on the server-side.
+      tags:
+        - Token Management
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogoutRequest'
+      responses:
+        '200':
+          description: Logout successful or token already invalidated.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Logout successful. Refresh token invalidated.
+        '400':
+          description: Bad Request (e.g., refresh token missing).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized (e.g., refresh token invalid format).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error.
           content:
             application/json:
               schema:
@@ -148,14 +283,14 @@ paths:
       summary: Google OAuth2 Callback
       description: |
         Handles the callback from Google after user authentication.
-        If successful, returns a JWT and user information.
+        If successful, returns access token, refresh token, and user information.
         This endpoint is typically called by Google's redirect, not directly by clients.
       tags:
         - Authentication
       parameters:
         - name: code
           in: query
-          required: false # Usually required by Google, but optional if error occurs before code
+          required: false
           description: The authorization code from Google.
           schema:
             type: string
@@ -167,19 +302,21 @@ paths:
             type: string
       responses:
         '200':
-          description: Authentication successful. JWT and user info returned.
+          description: Authentication successful. Tokens and user info returned.
           content:
             application/json:
               schema:
+                # Update AuthSuccessResponse to reflect separate access/refresh tokens if not already done
+                # For now, assuming AuthSuccessResponse is generic enough or will be updated
                 $ref: '#/components/schemas/AuthSuccessResponse'
         '401':
-          description: Authentication failed (e.g., user denied, invalid code).
+          description: Authentication failed.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '500':
-          description: Server error during callback processing.
+          description: Server error.
           content:
             application/json:
               schema:
@@ -193,9 +330,9 @@ paths:
         - Authentication
       responses:
         '302':
-          description: Redirect to Facebook's OAuth server. (Actual response is a redirect)
+          description: Redirect to Facebook's OAuth server.
         '500':
-          description: Server error during OAuth initiation.
+          description: Server error.
           content:
             application/json:
               schema:
@@ -206,7 +343,7 @@ paths:
       summary: Facebook OAuth2 Callback
       description: |
         Handles the callback from Facebook after user authentication.
-        If successful, returns a JWT and user information.
+        If successful, returns access token, refresh token, and user information.
       tags:
         - Authentication
       parameters:
@@ -224,7 +361,7 @@ paths:
             type: string
       responses:
         '200':
-          description: Authentication successful. JWT and user info returned.
+          description: Authentication successful. Tokens and user info returned.
           content:
             application/json:
               schema:
@@ -255,7 +392,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-                properties: # Override for specific example
+                properties:
                   message:
                     example: OAuth authentication failed. Please try again.
 
@@ -266,7 +403,7 @@ paths:
       tags:
         - User Profile
       security:
-        - BearerAuth: [] # Indicates this endpoint uses BearerAuth
+        - BearerAuth: []
       responses:
         '200':
           description: User profile retrieved successfully.
@@ -275,7 +412,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProfileResponse'
         '401':
-          description: Unauthorized (e.g., token missing, invalid, expired, or user not found).
+          description: Unauthorized.
           content:
             application/json:
               schema:
@@ -286,3 +423,281 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/admin/dashboard: # Corrected placement
+    get:
+      summary: Get Admin Dashboard Data (Example)
+      description: Retrieves data for an admin dashboard. Requires JWT authentication and 'admin' role.
+      tags:
+        - Admin
+        - User Profile
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Admin dashboard data retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Welcome to the Admin Dashboard!
+                  adminDetails:
+                    type: object
+                    properties:
+                      userId: { type: string }
+                      email: { type: string, format: email }
+                      roles: { type: array, items: { type: string } }
+                    example:
+                      userId: "some-admin-user-id"
+                      email: "admin@example.com"
+                      roles: ["admin", "user"]
+        '401':
+          description: Unauthorized (e.g., token missing, invalid, expired).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden (e.g., user does not have 'admin' role).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # Placeholder for /auth/refresh and /auth/logout - these should be added too.
+  # For brevity, assuming they are similar to other POST endpoints with request bodies and standard responses.
+  # A full OpenAPI spec would detail them.
+  # The AuthSuccessResponse schema also needs to be updated to reflect accessToken and refreshToken.
+
+# Minimal AuthSuccessResponse update for clarity
+# components:
+#   schemas:
+#     AuthSuccessResponse:
+#       type: object
+#       properties:
+#         message:
+#           type: string
+#         accessToken:
+#           type: string
+#           format: jwt
+#         refreshToken:
+#           type: string
+#           format: jwt
+#         user:
+#           $ref: '#/components/schemas/UserProfile'
+#       required: [message, accessToken, refreshToken, user]
+
+# Minimal RefreshTokenRequest for /auth/refresh
+# components:
+#   schemas:
+#     RefreshTokenRequest:
+#       type: object
+#       properties:
+#         refreshToken:
+#           type: string
+#       required: [refreshToken]
+
+# Minimal LogoutRequest for /auth/logout
+# components:
+#   schemas:
+#     LogoutRequest:
+#       type: object
+#       properties:
+#         refreshToken:
+#           type: string
+#       required: [refreshToken]
+
+# Proper paths for /auth/refresh and /auth/logout would be:
+# paths:
+#   /auth/refresh:
+#     post:
+#       summary: Refresh access token
+#       tags: [Authentication, Token Management]
+#       requestBody:
+#         required: true
+#         content:
+#           application/json:
+#             schema:
+#               $ref: '#/components/schemas/RefreshTokenRequest' # Define this schema
+#       responses:
+#         '200': { $ref: '#/components/schemas/AuthSuccessResponse' } # With new tokens
+#         '400': { $ref: '#/components/schemas/ErrorResponse' } # Bad request
+#         '401': { $ref: '#/components/schemas/ErrorResponse' } # Unauthorized (e.g., invalid refresh token)
+#   /auth/logout:
+#     post:
+#       summary: Logout user
+#       tags: [Authentication, Token Management]
+#       requestBody:
+#         required: true
+#         content:
+#           application/json:
+#             schema:
+#               $ref: '#/components/schemas/LogoutRequest' # Define this schema
+#       responses:
+#         '200':
+#           description: Logout successful
+#           content:
+#             application/json:
+#               schema: { type: object, properties: { message: { type: string, example: "Logout successful."}}}
+#         '400': { $ref: '#/components/schemas/ErrorResponse' } # Bad request
+#         '401': { $ref: '#/components/schemas/ErrorResponse' } # Unauthorized (e.g., invalid token)
+# Note: The above commented out sections for refresh/logout are for completeness of thought.
+# The primary goal here is to add the admin endpoint and update UserProfile schema.
+# The AuthSuccessResponse also needs to be updated for accessToken/refreshToken split.
+
+# Corrected AuthSuccessResponse to include accessToken and refreshToken
+components:
+  schemas:
+    AuthSuccessResponse: # This will override the previous definition if it's the last one parsed.
+      type: object
+      properties:
+        message:
+          type: string
+          example: Authentication successful!
+        accessToken: # Changed from 'token'
+          type: string
+          format: jwt
+          description: JWT access token for subsequent authenticated requests.
+        refreshToken: # Added
+          type: string
+          format: jwt
+          description: JWT refresh token for obtaining new access tokens.
+        user:
+          $ref: '#/components/schemas/UserProfile'
+      required:
+        - message
+        - accessToken # Changed from 'token'
+        - refreshToken # Added
+        - user
+    # ... (keep other schemas ErrorResponse, UserProfile, ProfileResponse as they are)
+    # ... (and add RefreshTokenRequest, LogoutRequest if fully detailing /refresh and /logout)
+    RefreshTokenRequest:
+      type: object
+      properties:
+        refreshToken:
+          type: string
+      required: [refreshToken]
+    LogoutRequest:
+      type: object
+      properties:
+        refreshToken:
+          type: string
+      required: [refreshToken]
+
+# Adding full definitions for /auth/refresh and /auth/logout for completeness
+paths:
+  /auth/refresh:
+    post:
+      summary: Refresh Access Token
+      description: Exchanges a valid refresh token for a new access token and a new refresh token.
+      tags:
+        - Token Management
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: Tokens refreshed successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSuccessResponse' # Returns new pair of tokens and user
+        '400':
+          description: Bad Request (e.g., refresh token missing).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized (e.g., refresh token invalid, expired, or revoked).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /auth/logout:
+    post:
+      summary: Logout User
+      description: Invalidates the provided refresh token on the server-side.
+      tags:
+        - Token Management
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogoutRequest'
+      responses:
+        '200':
+          description: Logout successful or token already invalidated.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Logout successful. Refresh token invalidated.
+        '400':
+          description: Bad Request (e.g., refresh token missing).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized (e.g., refresh token invalid format).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+# The above paths for /auth/refresh and /auth/logout will be merged by YAML parser
+# with the existing paths. This is a common way to extend YAML structures.
+# However, for clarity and to ensure correct merging, it's often better to have one
+# single `paths:` block. For the tool, I'll reconstruct the full paths section.
+#
+# The UserProfile schema also needs roles added:
+# UserProfile:
+#   properties:
+#     roles:
+#       type: array
+#       items: { type: string }
+#       description: Roles assigned to the user.
+#       example: ["user", "admin"]
+#
+# I'll combine all these thoughts into one final `overwrite_file_with_block`.
+# The previous `read_files` output is what I'll modify.
+# 1. Add `roles` to `UserProfile` schema.
+# 2. Update `AuthSuccessResponse` to use `accessToken` and `refreshToken`.
+# 3. Add `RefreshTokenRequest` and `LogoutRequest` schemas.
+# 4. Ensure `/auth/admin/dashboard` is correctly placed.
+# 5. Add full definitions for `/auth/refresh` and `/auth/logout`.It appears I've hit the token limit for the `overwrite_file_with_block` tool when trying to provide the fully updated OpenAPI spec. The content became too large.
+
+I need to break this down:
+1.  First, I'll update the `UserProfile` schema to include `roles` and the `AuthSuccessResponse` schema to reflect `accessToken` and `refreshToken`. I'll also add the new `RefreshTokenRequest` and `LogoutRequest` schemas. This will be one `replace_with_git_merge_diff` operation on the `components` section.
+2.  Then, I'll add the `/auth/admin/dashboard`, `/auth/refresh`, and `/auth/logout` paths to the `paths` section. This might also need to be broken down if it's too large, but I'll try it as one `replace_with_git_merge_diff` on the `paths` section.
+
+**Part 1: Update `components.schemas`**

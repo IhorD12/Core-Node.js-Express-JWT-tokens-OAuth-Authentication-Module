@@ -3,13 +3,21 @@
  * @fileoverview Authentication Service for managing tokens and auth operations.
  */
 const jwt = require('jsonwebtoken');
-const { jwtSecret, refreshTokenExpirationSeconds, nodeEnv } = require('../../config');
-const MockUserStore = require('../auth/mockUserStore'); // Import the concrete implementation
+const { jwtSecret, refreshTokenExpirationSeconds, nodeEnv, userStoreType } = require('../../config');
+const MockUserStore = require('../auth/mockUserStore');
+const MongoUserAdapter = require('../adapters/mongoUserAdapter');
+const PostgresUserAdapter = require('../adapters/postgresUserAdapter');
 const userService = require('./userService'); // For user lookups
 
-// Instantiate the store for this service's use.
-// In a real app, this might be a shared instance or injected.
-const userStore = new MockUserStore();
+// Instantiate the store based on configuration
+let userStore;
+if (userStoreType === 'mongodb') {
+  userStore = new MongoUserAdapter();
+} else if (userStoreType === 'postgres') {
+  userStore = new PostgresUserAdapter();
+} else { // Default to mock store
+  userStore = new MockUserStore();
+}
 
 // Access token expiration (e.g., 15 minutes for access token)
 const ACCESS_TOKEN_EXPIRATION_SECONDS = (nodeEnv === 'test' ? 5 * 60 : 15 * 60);

@@ -35,6 +35,9 @@ class MockUserStore extends UserStoreAdapter {
       if (!Array.isArray(user.refreshTokens)) {
         user.refreshTokens = [];
       }
+      if (!Array.isArray(user.roles)) { // Ensure roles array exists for existing users
+        user.roles = ['user'];
+      }
     } else {
       user = {
         id: `${profileDetails.provider}-${profileDetails.providerId}`,
@@ -43,6 +46,7 @@ class MockUserStore extends UserStoreAdapter {
         displayName: profileDetails.displayName,
         email: profileDetails.email || null,
         photo: profileDetails.photo || null,
+        roles: ['user'], // Default role for new users
         refreshTokens: [],
       };
       users.push(user); // Add to module-level users array

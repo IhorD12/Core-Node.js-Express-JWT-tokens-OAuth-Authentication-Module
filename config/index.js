@@ -43,6 +43,21 @@ const envVarsSchema = Joi.object({
   REFRESH_TOKEN_EXPIRATION_SECONDS: Joi.number().integer().positive().default(7 * 24 * 60 * 60), // 7 days in seconds
   LOG_LEVEL: Joi.string().valid('error', 'warn', 'info', 'http', 'verbose', 'debug', 'silly').default('info'),
 
+  // Database
+  MONGO_URI: Joi.string().when('USER_STORE_TYPE', {
+    is: 'mongodb',
+    then: Joi.string().required().uri({ scheme: ['mongodb', 'mongodb+srv'] }),
+    otherwise: Joi.optional().allow('')
+  }).default('mongodb://localhost:27017/auth_module_dev') // Default only applies if not overridden by more specific when cases
+    .messages({ 'any.required': 'MONGO_URI is required when USER_STORE_TYPE is mongodb.' }),
+  POSTGRES_URI: Joi.string().when('USER_STORE_TYPE', {
+    is: 'postgres',
+    then: Joi.string().required().uri({ scheme: ['postgresql', 'postgres'] }),
+    otherwise: Joi.optional().allow('')
+  }).default('postgresql://user:password@localhost:5432/auth_module_dev')
+    .messages({ 'any.required': 'POSTGRES_URI is required when USER_STORE_TYPE is postgres.' }),
+  USER_STORE_TYPE: Joi.string().valid('mongodb', 'mock', 'postgres').default('mock'),
+
   // OAuth Endpoint URLs - with defaults for real providers
   GOOGLE_AUTHORIZATION_URL: Joi.string().uri().default('https://accounts.google.com/o/oauth2/v2/auth'),
   GOOGLE_TOKEN_URL: Joi.string().uri().default('https://oauth2.googleapis.com/token'),
@@ -51,6 +66,21 @@ const envVarsSchema = Joi.object({
   FACEBOOK_AUTHORIZATION_URL: Joi.string().uri().default('https://www.facebook.com/v19.0/dialog/oauth'),
   FACEBOOK_TOKEN_URL: Joi.string().uri().default('https://graph.facebook.com/v19.0/oauth/access_token'),
   FACEBOOK_USER_PROFILE_URL: Joi.string().uri().default('https://graph.facebook.com/me'),
+
+  GITHUB_CLIENT_ID: Joi.string().when('NODE_ENV', {
+    is: Joi.string().valid('development', 'production'),
+    then: Joi.string().optional(), // Optional for now, make required if actively used
+    otherwise: Joi.optional().allow('')
+  }),
+  GITHUB_CLIENT_SECRET: Joi.string().when('NODE_ENV', {
+    is: Joi.string().valid('development', 'production'),
+    then: Joi.string().optional(),
+    otherwise: Joi.optional().allow('')
+  }),
+  GITHUB_AUTHORIZATION_URL: Joi.string().uri().default('https://github.com/login/oauth/authorize'),
+  GITHUB_TOKEN_URL: Joi.string().uri().default('https://github.com/login/oauth/access_token'),
+  GITHUB_USER_PROFILE_URL: Joi.string().uri().default('https://api.github.com/user'),
+  APP_NAME: Joi.string().default('Node.js Auth Module'),
 })
 .unknown(true); // Allow other environment variables not defined in the schema
 
@@ -124,11 +154,15 @@ module.exports = {
   corsAllowedOrigins: processedCorsOrigins,
   refreshTokenExpirationSeconds: envVars.REFRESH_TOKEN_EXPIRATION_SECONDS,
   logLevel: envVars.LOG_LEVEL,
+  mongoUri: envVars.MONGO_URI,
+  postgresUri: envVars.POSTGRES_URI,
+  appName: envVars.APP_NAME,
+  userStoreType: envVars.USER_STORE_TYPE,
   // OAuth Provider Configurations
   oauthProviders: [
     {
       name: 'google',
-      strategyModulePath: '../auth/strategies/googleStrategy', // Path for dynamic require in passportSetup
+      strategyModulePath: '../auth/strategies/googleStrategy',
       options: {
         clientID: envVars.GOOGLE_CLIENT_ID,
         clientSecret: envVars.GOOGLE_CLIENT_SECRET,
@@ -159,9 +193,26 @@ module.exports = {
       authPath: '/auth/facebook',
       callbackPath: '/auth/facebook/callback'
     },
-    // Example for GitHub (stubbed, would require GITHUB_CLIENT_ID/SECRET in env and schema)
+    {
+      name: 'github',
+      strategyModulePath: '../auth/strategies/githubStrategy',
+      options: {
+        clientID: envVars.GITHUB_CLIENT_ID,
+        clientSecret: envVars.GITHUB_CLIENT_SECRET,
+        callbackURL: '/auth/github/callback',
+        scope: ['user:email', 'read:user'],
+        authorizationURL: envVars.GITHUB_AUTHORIZATION_URL,
+        tokenURL: envVars.GITHUB_TOKEN_URL,
+        userProfileURL: envVars.GITHUB_USER_PROFILE_URL,
+        customHeaders: { 'User-Agent': envVars.APP_NAME || 'NodeJsAuthModule/1.0' }
+      },
+      isEnabled: !!envVars.GITHUB_CLIENT_ID && !!envVars.GITHUB_CLIENT_SECRET,
+      authPath: '/auth/github',
+      callbackPath: '/auth/github/callback'
+    },
+    // Example for another provider (stubbed)
     // {
-    //   name: 'github',
+    //   name: 'anotherprovider',
     //   strategyModulePath: '../auth/strategies/githubStrategy',
     //   options: {
     //     clientID: envVars.GITHUB_CLIENT_ID,

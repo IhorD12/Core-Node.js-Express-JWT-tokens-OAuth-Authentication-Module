@@ -15,7 +15,7 @@ class UserStoreAdapter {
   /**
    * Finds a user by their internal ID.
    * @param {string} id - The internal user ID.
-   * @returns {Promise<object|null>} The user object if found, otherwise null.
+   * @returns {Promise<object|null>} The user object (including `roles` array) if found, otherwise null.
    * @abstract
    */
   async findUserById(id) {
@@ -42,7 +42,7 @@ class UserStoreAdapter {
    * @param {string} profileDetails.displayName - User's display name.
    * @param {string|null} [profileDetails.email] - User's email address (optional).
    * @param {string|null} [profileDetails.photo] - URL to user's profile picture (optional).
-   * @returns {Promise<object>} The created or updated user object.
+   * @returns {Promise<object>} The created or updated user object (including `id` and `roles` array).
    * @abstract
    */
   async findOrCreateUser(profileDetails) {
