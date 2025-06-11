@@ -12,7 +12,7 @@ const configureFacebookStrategy = require('./facebookStrategy');
 /**
  * Configures and initializes Passport.
  * This function should be called once when the application starts.
- * @param {object} app - The Express application instance (optional, can be used if session support is needed, but we're using JWTs so session:false).
+ * @param {import('express').Application} app - The Express application instance. Passport middleware will be initialized on this app.
  */
 const initializePassport = (app) => {
   // Initialize Passport middleware if Express app is provided

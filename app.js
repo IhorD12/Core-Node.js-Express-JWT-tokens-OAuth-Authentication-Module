@@ -46,13 +46,25 @@ app.get('/', (req, res) => {
 });
 
 // --- Error Handling Middleware ---
-// Catch-all for 404 Not Found errors
+/**
+ * Catch-all middleware for 404 Not Found errors.
+ * This middleware is triggered if no other route matches.
+ * @param {import('express').Request} req - The Express request object.
+ * @param {import('express').Response} res - The Express response object.
+ * @param {import('express').NextFunction} next - The Express next middleware function (unused here).
+ */
 app.use((req, res, next) => {
   res.status(404).json({ message: 'Resource not found.' });
 });
 
-// Generic error handler (should be last middleware)
-// This catches errors passed by next(err) or thrown in route handlers
+/**
+ * Generic error handling middleware (should be the last middleware).
+ * This catches errors passed by `next(err)` or thrown synchronously in route handlers.
+ * @param {Error} err - The error object.
+ * @param {import('express').Request} req - The Express request object.
+ * @param {import('express').Response} res - The Express response object.
+ * @param {import('express').NextFunction} next - The Express next middleware function (unused here, but required for Express to recognize it as an error handler).
+ */
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
   console.error('Unhandled Error:', err.stack || err.message || err);

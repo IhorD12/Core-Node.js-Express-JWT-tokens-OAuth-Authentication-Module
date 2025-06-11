@@ -1,0 +1,288 @@
+openapi: 3.0.0
+info:
+  title: Modular Node.js Authentication API
+  version: 1.0.0
+  description: |
+    A stateless authentication API supporting OAuth2 (Google, Facebook) and JWT.
+    Provides endpoints for initiating OAuth flows, handling callbacks, and accessing protected resources.
+  contact:
+    name: API Support
+    email: support@example.com # Placeholder
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT # Placeholder
+
+servers:
+  - url: http://localhost:3000 # Default local server from .env
+    description: Development server
+  - url: https://api.example.com/v1 # Placeholder for production
+    description: Production server (example)
+
+components:
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: A human-readable error message.
+        errorDetails: # Optional, for development
+          type: string
+          description: Detailed error information (e.g., stack trace in development).
+      required:
+        - message
+
+    AuthSuccessResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Google authentication successful!
+        token:
+          type: string
+          format: jwt
+          description: JWT access token for subsequent authenticated requests.
+        user:
+          $ref: '#/components/schemas/UserProfile'
+      required:
+        - message
+        - token
+        - user
+
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the user.
+          example: google-112233445566778899000
+        provider:
+          type: string
+          description: The OAuth provider used for authentication.
+          example: google
+        providerId:
+          type: string
+          description: The user's ID as provided by the OAuth provider.
+          example: '112233445566778899000'
+        displayName:
+          type: string
+          description: The user's display name.
+          example: John Doe
+        email:
+          type: string
+          format: email
+          description: The user's email address.
+          example: john.doe@example.com
+        photo:
+          type: string
+          format: url
+          nullable: true
+          description: URL to the user's profile picture.
+          example: https://lh3.googleusercontent.com/a/AATXAJz...
+      required:
+        - id
+        - provider
+        - providerId
+        - displayName
+        - email
+
+    ProfileResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Profile retrieved successfully!
+        user:
+          $ref: '#/components/schemas/UserProfile'
+      required:
+        - message
+        - user
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT Bearer token authentication.
+        The token is obtained via one of the OAuth login flows.
+        Include the token in the Authorization header: `Authorization: Bearer <YOUR_JWT_TOKEN>`
+
+paths:
+  /:
+    get:
+      summary: Welcome endpoint
+      description: Returns a welcome message for the API.
+      tags:
+        - General
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Welcome to the Modular Authentication API!
+
+  /auth/google:
+    get:
+      summary: Initiate Google OAuth2 Login
+      description: Redirects the user to Google's authentication consent screen.
+      tags:
+        - Authentication
+      responses:
+        '302': # Or other redirect status, though our test mock returns 200 for simplicity
+          description: Redirect to Google's OAuth server. (Actual response is a redirect)
+        '500':
+          description: Server error during OAuth initiation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/google/callback:
+    get:
+      summary: Google OAuth2 Callback
+      description: |
+        Handles the callback from Google after user authentication.
+        If successful, returns a JWT and user information.
+        This endpoint is typically called by Google's redirect, not directly by clients.
+      tags:
+        - Authentication
+      parameters:
+        - name: code
+          in: query
+          required: false # Usually required by Google, but optional if error occurs before code
+          description: The authorization code from Google.
+          schema:
+            type: string
+        - name: error
+          in: query
+          required: false
+          description: Error message from Google if authentication fails.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Authentication successful. JWT and user info returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSuccessResponse'
+        '401':
+          description: Authentication failed (e.g., user denied, invalid code).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error during callback processing.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/facebook:
+    get:
+      summary: Initiate Facebook OAuth2 Login
+      description: Redirects the user to Facebook's authentication consent screen.
+      tags:
+        - Authentication
+      responses:
+        '302':
+          description: Redirect to Facebook's OAuth server. (Actual response is a redirect)
+        '500':
+          description: Server error during OAuth initiation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/facebook/callback:
+    get:
+      summary: Facebook OAuth2 Callback
+      description: |
+        Handles the callback from Facebook after user authentication.
+        If successful, returns a JWT and user information.
+      tags:
+        - Authentication
+      parameters:
+        - name: code
+          in: query
+          required: false
+          description: The authorization code from Facebook.
+          schema:
+            type: string
+        - name: error
+          in: query
+          required: false
+          description: Error message from Facebook if authentication fails.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Authentication successful. JWT and user info returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSuccessResponse'
+        '401':
+          description: Authentication failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/login-failure:
+    get:
+      summary: OAuth Login Failure
+      description: Endpoint indicating that an OAuth login attempt failed.
+      tags:
+        - Authentication
+      responses:
+        '401':
+          description: OAuth authentication failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+                properties: # Override for specific example
+                  message:
+                    example: OAuth authentication failed. Please try again.
+
+  /auth/profile:
+    get:
+      summary: Get User Profile
+      description: Retrieves the profile of the currently authenticated user. Requires JWT authentication.
+      tags:
+        - User Profile
+      security:
+        - BearerAuth: [] # Indicates this endpoint uses BearerAuth
+      responses:
+        '200':
+          description: User profile retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileResponse'
+        '401':
+          description: Unauthorized (e.g., token missing, invalid, expired, or user not found).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
