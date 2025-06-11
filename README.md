@@ -1,26 +1,5 @@
 # Modular Node.js Authentication API
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-
-## Table of Contents
-
-- [Overview](#overview)
-- [Features](#features)
-- [Prerequisites](#prerequisites)
-- [Quick Start](#quick-start)
-- [Installation & Setup](#installation--setup)
-- [Environment Variables Configuration](#environment-variables-configuration)
-- [How the OAuth Flow Works](#how-the-oauth-flow-works)
-- [Running the Application](#running-the-application)
-- [Running Tests](#running-tests)
-- [Generating New Tokens](#generating-new-tokens)
-- [API Endpoints Overview](#api-endpoints-overview)
-- [OpenAPI Specification](#openapi-specification)
-- [Error Handling](#error-handling)
-- [Mock User Store](#mock-user-store)
-- [Contributing](#contributing)
-- [License](#license)
-
 ## Overview
 
 This project provides a robust and modular authentication API built with Node.js, Express, and Passport.js. It supports JWT (JSON Web Token) based authentication, including **access and refresh tokens**, for protecting API endpoints. It features OAuth 2.0 integration for providers like Google and Facebook, made easily extensible. The primary goal is to offer a secure, maintainable, and extensible authentication solution.
@@ -29,7 +8,6 @@ The API allows users to authenticate via third-party OAuth providers. Upon succe
 
 ## Features
 
- feat/initial-auth-system
 -   **JWT-based Authentication**:
     -   Secure API endpoints using JSON Web Tokens.
     -   **Access Tokens**: Short-lived tokens for accessing protected resources.
@@ -61,36 +39,12 @@ The API allows users to authenticate via third-party OAuth providers. Upon succe
     *   ESLint for linting (setup exists, but execution issues in provided test environment).
     *   Husky and lint-staged for pre-commit hooks (currently focused on Prettier due to ESLint issues).
 
-- **JWT-based Authentication**: Secure API endpoints using JSON Web Tokens.
-- **OAuth 2.0 Integration**:
-    - Google Sign-In
-    - Facebook Login
-- **Modular Design**: Authentication strategies, token utilities, and routes are organized into separate modules for clarity and maintainability.
-- **Configuration Management**: Environment-based configuration using `.env` files.
-- **Mock User Store**: Simple in-memory user store for development and testing (easily replaceable with a database).
-- **Protected Routes**: Example of a protected `/auth/profile` endpoint.
-- **Unit and Integration Tests**: Comprehensive test suite using Jest and Supertest.
-- **Clear Error Handling**: Standardized JSON error responses.
-- **OpenAPI Specification**: API documented using OpenAPI (Swagger) in the `docs/` directory.
-- **JSDoc Comments**: All major modules and functions are documented with JSDoc.
- main
-
 ## Prerequisites
 
 -   [Node.js](https://nodejs.org/) (version 18.x or later recommended for full compatibility with all dev tools, though core app may run on 14.x+)
 -   [npm](https://www.npmjs.com/) (usually comes with Node.js)
 -   [Docker](https://www.docker.com/) and [Docker Compose](https://docs.docker.com/compose/) (Optional, for containerized deployment)
 -   Access to Google Cloud Console and Facebook for Developers to obtain OAuth credentials if using these providers.
-
-## Quick Start
-
-```bash
-git clone <repository_url>
-cd <repository_directory_name>
-cp .env.example .env
-npm install
-npm run dev
-```
 
 ## Installation & Setup
 
@@ -188,19 +142,9 @@ npm test
 Tests are located in the `tests/` directory. The goal is to maintain high test coverage.
 Current test environment has known issues with fully running ESLint.
 
-### Example: Accessing a Protected Route
-
-```bash
-curl -H "Authorization: Bearer <your_jwt_token>" http://localhost:3000/auth/profile
-```
-
 ## API Endpoints Overview
 
- feat/initial-auth-system
 Interactive API documentation is available via Swagger UI when the application is running.
-
-A more detailed specification is available via an OpenAPI document (see [docs/openapi.yaml](docs/openapi.yaml)).
- main
 
 -   **`GET /`**: Welcome message.
 -   **`GET /health`**: Health check endpoint. Returns uptime, status message, and timestamp.
@@ -259,42 +203,5 @@ The application uses a User Store Abstraction (`src/adapters/userStoreAdapter.js
     // const userStore = new MyDbAdapter();
     ```
 
-feat/initial-auth-system
-
+---
 This README provides a comprehensive guide to understanding, setting up, running, and extending the Modular Node.js Authentication API.
-
-## OpenAPI Specification
-
-See [`docs/openapi.yaml`](docs/openapi.yaml) for a full API specification compatible with Swagger UI.
-
-## Error Handling
-
-All errors are returned as JSON objects with a consistent structure:
-
-```json
-{
-  "error": "Invalid token",
-  "details": "JWT expired"
-}
-```
-
-Common error cases include:
-- Invalid or missing JWT token
-- Expired token
-- OAuth callback errors
-- Unauthorized access to protected routes
-
-## Mock User Store
-
-This project uses a simple in-memory user store for development and testing.  
-**To use a real database:**  
-Replace the logic in `auth/mockUserStore.js` with your preferred database implementation (e.g., MongoDB, PostgreSQL).
-
-## Contributing
-
-Pull requests are welcome! For major changes, please open an issue first to discuss what you would like to change.
-
-## License
-
-This project is licensed under the MIT License.
-main

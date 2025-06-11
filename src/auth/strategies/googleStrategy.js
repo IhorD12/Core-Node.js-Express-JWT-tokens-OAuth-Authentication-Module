@@ -25,9 +25,12 @@ const configureStrategy = (options, services) => {
     {
       clientID: options.clientID,
       clientSecret: options.clientSecret,
-      callbackURL: options.callbackURL, // This should be absolute URL in production, or handled by proxy
+      callbackURL: options.callbackURL,
       scope: options.scope || ['profile', 'email'],
-      passReqToCallback: false, // Depending on if you need `req` in the callback
+      authorizationURL: options.authorizationURL, // Pass through from config
+      tokenURL: options.tokenURL,                 // Pass through from config
+      userProfileURL: options.userProfileURL,       // Pass through from config
+      passReqToCallback: false,
     },
     async (accessToken, refreshToken, profile, done) => { // Standard Passport strategy callback
       try {

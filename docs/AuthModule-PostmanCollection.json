@@ -1,0 +1,369 @@
+{
+  "info": {
+    "_postman_id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+    "name": "Modular Node.js Auth API",
+    "description": "Collection for the Node.js Authentication Module with OAuth2 (Google, Facebook) and JWT (Access/Refresh Tokens).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "General",
+      "description": "Basic server and API information endpoints.",
+      "item": [
+        {
+          "name": "Welcome Message",
+          "id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxx1",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                ""
+              ]
+            },
+            "description": "Retrieves the welcome message from the API."
+          },
+          "response": []
+        },
+        {
+          "name": "Health Check",
+          "id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxx2",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "Checks the health status of the API, providing uptime and timestamp."
+          },
+          "response": []
+        },
+        {
+          "name": "API Documentation (Swagger UI)",
+          "id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxx3",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api-docs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api-docs"
+              ]
+            },
+            "description": "Serves the Swagger UI for interactive API documentation. Best viewed in a browser."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "OAuth Flows (Browser Initiation)",
+      "description": "Endpoints to initiate OAuth flows. These are typically accessed via a web browser.",
+      "item": [
+        {
+          "name": "Initiate Google Login",
+          "id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxx4",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/google",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "google"
+              ]
+            },
+            "description": "Redirects to Google's authentication screen. Open this URL in a browser."
+          },
+          "response": []
+        },
+        {
+          "name": "Initiate Facebook Login",
+          "id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxx5",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/facebook",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "facebook"
+              ]
+            },
+            "description": "Redirects to Facebook's authentication screen. Open this URL in a browser."
+          },
+          "response": []
+        },
+        {
+          "name": "Google OAuth Callback (Informational)",
+          "id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxx6",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/google/callback?code=YOUR_GOOGLE_CODE&state=OPTIONAL_STATE",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "google",
+                "callback"
+              ],
+              "query": [
+                {
+                  "key": "code",
+                  "value": "YOUR_GOOGLE_CODE",
+                  "description": "Replace with the actual code from Google's redirect."
+                },
+                {
+                  "key": "state",
+                  "value": "OPTIONAL_STATE",
+                  "description": "Replace with the state value if you used one."
+                }
+              ]
+            },
+            "description": "Callback URL for Google OAuth. The browser is redirected here by Google after authentication. Not typically called directly."
+          },
+          "response": []
+        },
+        {
+          "name": "Facebook OAuth Callback (Informational)",
+          "id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxx7",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/facebook/callback?code=YOUR_FACEBOOK_CODE&state=OPTIONAL_STATE",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "facebook",
+                "callback"
+              ],
+              "query": [
+                {
+                  "key": "code",
+                  "value": "YOUR_FACEBOOK_CODE",
+                  "description": "Replace with the actual code from Facebook's redirect."
+                },
+                {
+                  "key": "state",
+                  "value": "OPTIONAL_STATE",
+                  "description": "Replace with the state value if you used one."
+                }
+              ]
+            },
+            "description": "Callback URL for Facebook OAuth. The browser is redirected here by Facebook after authentication. Not typically called directly."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Token Management",
+      "description": "Endpoints for managing access and refresh tokens.",
+      "item": [
+        {
+          "name": "Refresh Tokens",
+          "id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxx8",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "refresh"
+              ]
+            },
+            "description": "Exchanges a valid refresh token for a new access token and a new refresh token (rolling refresh)."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "id": "xxxxxxxx-xxxx-xxxx-xxxx-scriptid01",
+                "exec": [
+                  "// Postman test script for /auth/refresh",
+                  "try {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData && jsonData.accessToken) {",
+                  "        pm.collectionVariables.set(\"accessToken\", jsonData.accessToken);",
+                  "        console.log(\"Set accessToken from refresh response\");",
+                  "    }",
+                  "    if (jsonData && jsonData.refreshToken) {",
+                  "        pm.collectionVariables.set(\"refreshToken\", jsonData.refreshToken);",
+                  "        console.log(\"Set refreshToken from refresh response\");",
+                  "    }",
+                  "} catch (e) {",
+                  "    console.log(\"Error parsing refresh response or setting variables:\", e);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout (Invalidate Refresh Token)",
+          "id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxx9",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Invalidates the provided refresh token on the server-side. Client should also discard tokens."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "User Profile",
+      "description": "Endpoints related to user profiles.",
+      "item": [
+        {
+          "name": "Get User Profile",
+          "id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxx10",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/profile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "profile"
+              ]
+            },
+            "description": "Retrieves the profile of the authenticated user. Requires a valid Bearer access token."
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "description": "Stores the access token obtained from login or refresh.",
+      "type": "string"
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "description": "Stores the refresh token obtained from login or refresh.",
+      "type": "string"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ]
+}
