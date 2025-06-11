@@ -1,4 +1,7 @@
 // auth/tokenUtils.js
+/**
+ * @fileoverview Utility functions for generating JSON Web Tokens (JWTs).
+ */
 const jwt = require('jsonwebtoken');
 const { jwtSecret } = require('../config'); // Assuming config/index.js will be created
 

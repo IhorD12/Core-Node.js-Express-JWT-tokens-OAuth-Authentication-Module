@@ -59,6 +59,11 @@ const strategy = new FacebookStrategy(facebookOptions, async (accessToken, refre
   }
 });
 
+/**
+ * Configures and registers the Facebook OAuth2.0 strategy with a Passport instance.
+ * @param {import('passport').PassportStatic} passportInstance - The Passport instance to which the strategy will be added.
+ * @throws {Error} If an invalid Passport instance is provided.
+ */
 module.exports = (passportInstance) => {
   if (!passportInstance || typeof passportInstance.use !== 'function') {
      throw new Error("A valid Passport instance must be provided.");
