@@ -42,6 +42,15 @@ const envVarsSchema = Joi.object({
   CORS_ALLOWED_ORIGINS: Joi.string().optional().allow(''), // Validated as string, processed later
   REFRESH_TOKEN_EXPIRATION_SECONDS: Joi.number().integer().positive().default(7 * 24 * 60 * 60), // 7 days in seconds
   LOG_LEVEL: Joi.string().valid('error', 'warn', 'info', 'http', 'verbose', 'debug', 'silly').default('info'),
+
+  // OAuth Endpoint URLs - with defaults for real providers
+  GOOGLE_AUTHORIZATION_URL: Joi.string().uri().default('https://accounts.google.com/o/oauth2/v2/auth'),
+  GOOGLE_TOKEN_URL: Joi.string().uri().default('https://oauth2.googleapis.com/token'),
+  GOOGLE_USERINFO_URL: Joi.string().uri().default('https://www.googleapis.com/oauth2/v3/userinfo'),
+
+  FACEBOOK_AUTHORIZATION_URL: Joi.string().uri().default('https://www.facebook.com/v19.0/dialog/oauth'),
+  FACEBOOK_TOKEN_URL: Joi.string().uri().default('https://graph.facebook.com/v19.0/oauth/access_token'),
+  FACEBOOK_USER_PROFILE_URL: Joi.string().uri().default('https://graph.facebook.com/me'),
 })
 .unknown(true); // Allow other environment variables not defined in the schema
 
@@ -123,8 +132,11 @@ module.exports = {
       options: {
         clientID: envVars.GOOGLE_CLIENT_ID,
         clientSecret: envVars.GOOGLE_CLIENT_SECRET,
-        callbackURL: '/auth/google/callback', // Relative path, will be prefixed by app's base URL
+        callbackURL: '/auth/google/callback', // App's callback path
         scope: ['profile', 'email'],
+        authorizationURL: envVars.GOOGLE_AUTHORIZATION_URL,
+        tokenURL: envVars.GOOGLE_TOKEN_URL,
+        userProfileURL: envVars.GOOGLE_USERINFO_URL, // Used by Google strategy
       },
       isEnabled: !!envVars.GOOGLE_CLIENT_ID && !!envVars.GOOGLE_CLIENT_SECRET,
       authPath: '/auth/google', // For generating routes
@@ -136,9 +148,12 @@ module.exports = {
       options: {
         clientID: envVars.FACEBOOK_CLIENT_ID,
         clientSecret: envVars.FACEBOOK_CLIENT_SECRET,
-        callbackURL: '/auth/facebook/callback',
-        scope: ['email', 'public_profile'], // Note: Facebook's scope is an array of strings
-        profileFields: ['id', 'displayName', 'emails', 'photos'], // Facebook specific
+        callbackURL: '/auth/facebook/callback', // App's callback path
+        scope: ['email', 'public_profile'],
+        profileFields: ['id', 'displayName', 'emails', 'photos'],
+        authorizationURL: envVars.FACEBOOK_AUTHORIZATION_URL,
+        tokenURL: envVars.FACEBOOK_TOKEN_URL,
+        profileURL: envVars.FACEBOOK_USER_PROFILE_URL, // Used by Facebook strategy
       },
       isEnabled: !!envVars.FACEBOOK_CLIENT_ID && !!envVars.FACEBOOK_CLIENT_SECRET,
       authPath: '/auth/facebook',

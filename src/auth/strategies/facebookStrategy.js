@@ -28,6 +28,9 @@ const configureStrategy = (options, services) => {
       callbackURL: options.callbackURL,
       scope: options.scope || ['email', 'public_profile'],
       profileFields: options.profileFields || ['id', 'displayName', 'emails', 'photos'],
+      authorizationURL: options.authorizationURL, // Pass through from config
+      tokenURL: options.tokenURL,                 // Pass through from config
+      profileURL: options.profileURL,             // Pass through from config
       passReqToCallback: false,
     },
     async (accessToken, refreshToken, profile, done) => {
