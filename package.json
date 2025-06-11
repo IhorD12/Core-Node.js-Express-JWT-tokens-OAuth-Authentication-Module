@@ -4,35 +4,13 @@
   "description": "",
   "main": "src/server.js",
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "nodemon src/server.js",
-    "test": "jest --coverage --runInBand",
-    "lint": "./node_modules/.bin/eslint . --fix",
-    "format": "npx prettier --write \"**/*.{js,jsx,ts,tsx,json,md,yaml,yml}\"",
+    "start": "node dist/server.js",
+    "build": "./node_modules/.bin/tsc",
+    "dev": "nodemon --watch src --watch config --ext ts,js,json --exec ts-node ./src/server.ts",
+    "test": "jest --config jest.config.js --runInBand",
+    "lint": "npx eslint \"src/**/*.ts\" \"config/**/*.ts\" --fix",
+    "format": "npx prettier --write \"src/**/*.{ts,js,json,md,yaml,yml}\" \"config/**/*.{ts,js,json,md,yaml,yml}\"",
     "setup": "node scripts/setup.js"
-  },
-  "jest": {
-    "collectCoverage": true,
-    "coverageReporters": [
-      "json",
-      "lcov",
-      "text",
-      "clover",
-      "html"
-    ],
-    "coverageDirectory": "coverage",
-    "collectCoverageFrom": [
-      "src/**/*.js",
-      "!src/server.js",
-      "!src/config/**",
-      "!src/adapters/mongoUserAdapter.js",
-      "!src/adapters/postgresUserAdapter.js",
-      "!**/node_modules/**"
-    ],
-    "testEnvironment": "node",
-    "setupFilesAfterEnv": [
-      "./tests/setup.js"
-    ]
   },
   "repository": {
     "type": "git",
@@ -63,7 +41,6 @@
     "js-yaml": "^4.1.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.15.1",
-    "nodemon": "^3.1.10",
     "passport": "^0.7.0",
     "passport-facebook": "^3.0.0",
     "passport-github2": "^0.1.12",
@@ -73,15 +50,39 @@
     "winston": "^3.17.0"
   },
   "devDependencies": {
+    "@types/body-parser": "^1.19.6",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/express-rate-limit": "^6.0.2",
+    "@types/helmet": "^4.0.0",
+    "@types/jest": "^29.5.14",
+    "@types/joi": "^17.2.3",
+    "@types/js-yaml": "^4.0.9",
+    "@types/jsonwebtoken": "^9.0.9",
+    "@types/mongoose": "^5.11.97",
+    "@types/node": "^24.0.0",
+    "@types/passport": "^1.0.17",
+    "@types/passport-facebook": "^3.0.3",
+    "@types/passport-github2": "^1.2.9",
+    "@types/passport-google-oauth20": "^2.0.16",
+    "@types/passport-jwt": "^4.0.1",
+    "@types/pg": "^8.15.4",
+    "@types/supertest": "^6.0.3",
+    "@typescript-eslint/eslint-plugin": "^8.34.0",
+    "@typescript-eslint/parser": "^8.34.0",
     "body-parser": "^2.2.0",
     "cross-env": "^7.0.3",
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^8.10.0",
+    "eslint-import-resolver-typescript": "^4.4.3",
     "eslint-plugin-prettier": "^4.2.1",
     "husky": "^9.1.7",
     "jest": "^30.0.0",
     "lint-staged": "^16.1.0",
+    "nodemon": "^3.1.10",
     "prettier": "^3.5.3",
-    "supertest": "^7.1.1"
+    "supertest": "^7.1.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
   }
 }

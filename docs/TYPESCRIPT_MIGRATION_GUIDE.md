@@ -271,4 +271,6 @@ If a full conversion is too much at once:
     -   Update ESLint configuration (`.eslintrc.js` or `eslint.config.js`) accordingly.
     -   Prettier generally works well with TypeScript out of the box.
 
-This guide provides a roadmap for migrating the project to TypeScript. The choice of strategy and the exact implementation details will depend on project priorities and team familiarity with TypeScript.
+---
+
+*Note: The Modular Node.js Authentication API project successfully underwent a TypeScript migration based on the principles outlined in this guide during its development leading up to version 1.0.0. This document remains a general reference for understanding the process and considerations involved in such a migration.*

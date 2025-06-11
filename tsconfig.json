@@ -1,0 +1,37 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "lib": ["ES2020"],
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "sourceMap": true,
+    "baseUrl": ".",
+    "paths": {
+      "@config/*": ["config/*"], // For root config
+      "@src/*": ["src/*"],
+      "@adapters/*": ["src/adapters/*"],
+      "@auth/*": ["src/auth/*"],
+      "@middleware/*": ["src/middleware/*"],
+      "@routes/*": ["src/routes/*"],
+      "@services/*": ["src/services/*"]
+    },
+    "typeRoots": ["./node_modules/@types", "./src/types"] // If custom types are added in src/types
+  },
+  "include": [
+    "src/**/*.ts",
+    "config/**/*.ts" // Include root config if it's converted
+  ],
+  "exclude": [
+    "node_modules",
+    "tests",
+    "dist",
+    "docs",
+    "scripts" // Exclude utility scripts unless they are also to be compiled
+  ]
+}
