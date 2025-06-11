@@ -1,9 +1,9 @@
 // tests/routes/authRoutes.test.js
 const request = require('supertest');
-const app = require('../../app'); // Our Express app
+const app = require('../../src/app'); // Our Express app
 const passport = require('passport'); // The mocked passport
-const { clearUsers, findUserByProfileId } = require('../../auth/mockUserStore'); // To check user creation
-const { generateToken } = require('../../auth/tokenUtils'); // To create valid tokens for other tests if needed
+const { clearUsers, findUserByProfileId } = require('../../src/auth/mockUserStore'); // To check user creation
+const { generateToken } = require('../../src/auth/tokenUtils'); // To create valid tokens for other tests if needed
 
 describe('Auth Routes Integration Tests', () => {
   let server;
@@ -51,7 +51,10 @@ describe('Auth Routes Integration Tests', () => {
         .expect(200)
         .end((err, res) => {
           if (err) return done(err);
-          expect(passport.authenticate).toHaveBeenCalledWith('google', expect.objectContaining({ session: false, scope: ['profile', 'email'] }));
+          expect(passport.authenticate).toHaveBeenCalledWith(
+            'google',
+            expect.objectContaining({ session: false, scope: ['profile', 'email'] })
+          );
           expect(res.text).toContain('Redirecting to Google...');
           done();
         });
@@ -60,8 +63,15 @@ describe('Auth Routes Integration Tests', () => {
 
   describe('GET /auth/google/callback', () => {
     it('should return JWT and user info on successful Google auth', async () => {
-      const mockGoogleProfile = { id: 'google123', displayName: 'Google User', emails: [{ value: 'google@example.com' }] };
-      const mockUser = { id: `google-${mockGoogleProfile.id}`, email: mockGoogleProfile.emails[0].value };
+      const mockGoogleProfile = {
+        id: 'google123',
+        displayName: 'Google User',
+        emails: [{ value: 'google@example.com' }],
+      };
+      const mockUser = {
+        id: `google-${mockGoogleProfile.id}`,
+        email: mockGoogleProfile.emails[0].value,
+      };
       const mockToken = 'mockGoogleJwtToken';
 
       passport.authenticate.mockImplementation((strategy, options, callbackOrCustomHandler) => {
@@ -78,7 +88,10 @@ describe('Auth Routes Integration Tests', () => {
         .get('/auth/google/callback?code=someauthcode') // query params are typical for OAuth callbacks
         .expect(200);
 
-      expect(passport.authenticate).toHaveBeenCalledWith('google', expect.objectContaining({ session: false }));
+      expect(passport.authenticate).toHaveBeenCalledWith(
+        'google',
+        expect.objectContaining({ session: false })
+      );
       expect(response.body.message).toBe('Google authentication successful!');
       expect(response.body.token).toBe(mockToken);
       expect(response.body.user).toEqual(mockUser);
@@ -98,27 +111,23 @@ describe('Auth Routes Integration Tests', () => {
         };
       });
 
-      const response = await request(app)
-        .get('/auth/google/callback?error=someerror')
-        .expect(401);
+      const response = await request(app).get('/auth/google/callback?error=someerror').expect(401);
 
       expect(response.body.message).toBe('Google auth failed by mock');
     });
 
-     it('should return 500 if Google strategy passes an error', async () => {
-         passport.authenticate.mockImplementation((strategy, options, callbackOrCustomHandler) => {
-             return (req, res, next) => {
-                 callbackOrCustomHandler(new Error('Big Google Error'), false, null);
-             };
-         });
+    it('should return 500 if Google strategy passes an error', async () => {
+      passport.authenticate.mockImplementation((strategy, options, callbackOrCustomHandler) => {
+        return (req, res, next) => {
+          callbackOrCustomHandler(new Error('Big Google Error'), false, null);
+        };
+      });
 
-         const response = await request(app)
-             .get('/auth/google/callback?code=whatever')
-             .expect(500);
+      const response = await request(app).get('/auth/google/callback?code=whatever').expect(500);
 
-         expect(response.body.message).toBe('Authentication failed during Google callback.');
-         expect(response.body.error).toBe('Big Google Error');
-     });
+      expect(response.body.message).toBe('Authentication failed during Google callback.');
+      expect(response.body.error).toBe('Big Google Error');
+    });
   });
 
   // --- Facebook Auth Tests (similar structure to Google) ---
@@ -135,7 +144,11 @@ describe('Auth Routes Integration Tests', () => {
 
   describe('GET /auth/facebook/callback', () => {
     it('should return JWT and user info on successful Facebook auth', async () => {
-      const mockFbProfile = { id: 'fb789', displayName: 'Facebook User', emails: [{ value: 'fb@example.com' }] };
+      const mockFbProfile = {
+        id: 'fb789',
+        displayName: 'Facebook User',
+        emails: [{ value: 'fb@example.com' }],
+      };
       const mockUser = { id: `facebook-${mockFbProfile.id}`, email: mockFbProfile.emails[0].value };
       const mockToken = 'mockFacebookJwtToken';
 
@@ -170,11 +183,9 @@ describe('Auth Routes Integration Tests', () => {
 
   // --- Login Failure Route ---
   describe('GET /auth/login-failure', () => {
-     it('should return 401 with a generic failure message', async () => {
-         const response = await request(app)
-             .get('/auth/login-failure')
-             .expect(401);
-         expect(response.body.message).toBe('OAuth authentication failed. Please try again.');
-     });
+    it('should return 401 with a generic failure message', async () => {
+      const response = await request(app).get('/auth/login-failure').expect(401);
+      expect(response.body.message).toBe('OAuth authentication failed. Please try again.');
+    });
   });
 });

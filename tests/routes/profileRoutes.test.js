@@ -1,8 +1,8 @@
 // tests/routes/profileRoutes.test.js
 const request = require('supertest');
-const app = require('../../app'); // Our Express app
-const { generateToken } = require('../../auth/tokenUtils');
-const { findUserById, clearUsers, findOrCreateUser } = require('../../auth/mockUserStore');
+const app = require('../../src/app'); // Our Express app
+const { generateToken } = require('../../src/auth/tokenUtils');
+const { findUserById, clearUsers, findOrCreateUser } = require('../../src/auth/mockUserStore');
 const { jwtSecret } = require('../../config'); // For direct JWT manipulation if needed for specific tests
 const jwt = require('jsonwebtoken'); // For creating expired tokens
 
@@ -13,7 +13,8 @@ describe('Profile Routes Integration Tests (/auth/profile)', () => {
   beforeAll(async () => {
     // Ensure JWT_SECRET is set for token generation
     // This is also done in tests/setup.js but good to be defensive
-    if (!require('../../config').jwtSecret) { // Check the currently loaded config
+    if (!require('../../config').jwtSecret) {
+      // Check the currently loaded config
       process.env.JWT_SECRET = 'test_jwt_secret_for_jest_profile';
       // Update the imported jwtSecret if it was cached by the module
       // This requires re-requiring or directly modifying the cached config object.
@@ -27,7 +28,11 @@ describe('Profile Routes Integration Tests (/auth/profile)', () => {
   beforeEach(async () => {
     clearUsers();
     // Create a mock user in the store for JWT strategy to find
-    const userProfile = { id: 'profileUser123', displayName: 'Profile User', emails: [{ value: 'profile@example.com' }] };
+    const userProfile = {
+      id: 'profileUser123',
+      displayName: 'Profile User',
+      emails: [{ value: 'profile@example.com' }],
+    };
     // findOrCreateUser will create an ID like 'testprovider-profileUser123'
     // The token's 'sub' claim will be this user.id.
     mockUser = await findOrCreateUser(userProfile, 'testprovider');
@@ -35,9 +40,7 @@ describe('Profile Routes Integration Tests (/auth/profile)', () => {
   });
 
   it('should return 401 Unauthorized if no token is provided', async () => {
-    const response = await request(app)
-      .get('/auth/profile')
-      .expect(401);
+    const response = await request(app).get('/auth/profile').expect(401);
     // Message can vary slightly based on passport-jwt version or if some other middleware interferes.
     // authMiddleware provides specific messages.
     expect(response.body.message).toMatch(/No auth token|Unauthorized/i);
@@ -48,7 +51,9 @@ describe('Profile Routes Integration Tests (/auth/profile)', () => {
       .get('/auth/profile')
       .set('Authorization', 'Bearer invalidtoken123')
       .expect(401);
-    expect(response.body.message).toMatch(/Invalid token|jwt malformed|Format is Authorization: Bearer \[token\]/i);
+    expect(response.body.message).toMatch(
+      /Invalid token|jwt malformed|Format is Authorization: Bearer \[token\]/i
+    );
   });
 
   it('should return 401 Unauthorized if token is expired', async () => {
@@ -84,14 +89,14 @@ describe('Profile Routes Integration Tests (/auth/profile)', () => {
   });
 
   it('should return 401 Unauthorized if token signature is invalid (tampered)', async () => {
-     const parts = validToken.split('.');
-     const tamperedToken = `${parts[0]}.${parts[1]}.InvalidSignaturePart`;
+    const parts = validToken.split('.');
+    const tamperedToken = `${parts[0]}.${parts[1]}.InvalidSignaturePart`;
 
-     const response = await request(app)
-         .get('/auth/profile')
-         .set('Authorization', `Bearer ${tamperedToken}`)
-         .expect(401);
-     expect(response.body.message).toMatch(/Invalid token|invalid signature/i);
+    const response = await request(app)
+      .get('/auth/profile')
+      .set('Authorization', `Bearer ${tamperedToken}`)
+      .expect(401);
+    expect(response.body.message).toMatch(/Invalid token|invalid signature/i);
   });
 
   it('should return 200 OK and user profile if token is valid and user exists', async () => {
@@ -108,13 +113,15 @@ describe('Profile Routes Integration Tests (/auth/profile)', () => {
 
     // Verify against the object structure our mockUserStore provides
     const userFromStore = await findUserById(mockUser.id);
-    expect(response.body.user).toEqual(expect.objectContaining({
+    expect(response.body.user).toEqual(
+      expect.objectContaining({
         id: userFromStore.id,
         provider: userFromStore.provider,
         providerId: userFromStore.providerId,
         displayName: userFromStore.displayName,
         email: userFromStore.email,
         photo: userFromStore.photo,
-    }));
+      })
+    );
   });
 });

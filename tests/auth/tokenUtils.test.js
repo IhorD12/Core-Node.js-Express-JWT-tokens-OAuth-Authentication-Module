@@ -1,5 +1,5 @@
 // tests/auth/tokenUtils.test.js
-const { generateToken } = require('../../auth/tokenUtils');
+const { generateToken } = require('../../src/auth/tokenUtils');
 const jwt = require('jsonwebtoken');
 const { jwtSecret } = require('../../config');
 
@@ -50,7 +50,9 @@ describe('Auth Token Utilities', () => {
       const currentSecret = require('../../config').jwtSecret;
       require('../../config').jwtSecret = undefined; // Temporarily unset
 
-      expect(() => generateToken(mockUser)).toThrow('JWT_SECRET is not defined. Please set it in your .env file.');
+      expect(() => generateToken(mockUser)).toThrow(
+        'JWT_SECRET is not defined. Please set it in your .env file.'
+      );
 
       require('../../config').jwtSecret = currentSecret; // Restore
     });

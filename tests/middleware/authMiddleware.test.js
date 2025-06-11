@@ -1,5 +1,5 @@
 // tests/middleware/authMiddleware.test.js
-const { verifyToken } = require('../../middleware/authMiddleware');
+const { verifyToken } = require('../../src/middleware/authMiddleware');
 const passport = require('passport');
 
 // Mock passport.authenticate
@@ -27,14 +27,19 @@ describe('Auth Middleware', () => {
       const mockUser = { id: '123', username: 'testuser' };
       // Setup mockAuthenticate to simulate success
       mockAuthenticate.mockImplementation((strategy, options, callback) => {
-        return (req, res, next) => { // This is the function that passport.authenticate returns
+        return (req, res, next) => {
+          // This is the function that passport.authenticate returns
           callback(null, mockUser, null); // (err, user, info)
         };
       });
 
       verifyToken(mockReq, mockRes, mockNext);
 
-      expect(mockAuthenticate).toHaveBeenCalledWith('jwt', { session: false }, expect.any(Function));
+      expect(mockAuthenticate).toHaveBeenCalledWith(
+        'jwt',
+        { session: false },
+        expect.any(Function)
+      );
       expect(mockReq.user).toEqual(mockUser);
       expect(mockNext).toHaveBeenCalledTimes(1);
       expect(mockNext).toHaveBeenCalledWith(); // Called with no arguments
@@ -51,7 +56,11 @@ describe('Auth Middleware', () => {
 
       verifyToken(mockReq, mockRes, mockNext);
 
-      expect(mockAuthenticate).toHaveBeenCalledWith('jwt', { session: false }, expect.any(Function));
+      expect(mockAuthenticate).toHaveBeenCalledWith(
+        'jwt',
+        { session: false },
+        expect.any(Function)
+      );
       expect(mockRes.status).toHaveBeenCalledWith(401);
       expect(mockRes.json).toHaveBeenCalledWith({ message: 'No user found' });
       expect(mockNext).not.toHaveBeenCalled();
@@ -96,9 +105,16 @@ describe('Auth Middleware', () => {
 
       verifyToken(mockReq, mockRes, mockNext);
 
-      expect(mockAuthenticate).toHaveBeenCalledWith('jwt', { session: false }, expect.any(Function));
+      expect(mockAuthenticate).toHaveBeenCalledWith(
+        'jwt',
+        { session: false },
+        expect.any(Function)
+      );
       expect(mockRes.status).toHaveBeenCalledWith(500);
-      expect(mockRes.json).toHaveBeenCalledWith({ message: 'Authentication error.', error: strategyError.message });
+      expect(mockRes.json).toHaveBeenCalledWith({
+        message: 'Authentication error.',
+        error: strategyError.message,
+      });
       expect(mockNext).not.toHaveBeenCalled();
     });
   });

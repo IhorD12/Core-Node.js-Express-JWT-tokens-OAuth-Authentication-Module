@@ -1,7 +1,10 @@
 // app.js
 const express = require('express');
-const { nodeEnv, port } = require('./config'); // Using destructuring for clarity
+const helmet = require('helmet');
+const cors = require('cors'); // Import cors
+const { nodeEnv, port, corsAllowedOrigins } = require('../config'); // Import cors config and other vars
 const initializePassport = require('./auth/passportSetup');
+const rateLimit = require('express-rate-limit');
 const authRoutes = require('./routes/authRoutes');
 const profileRoutes = require('./routes/profileRoutes'); // Ensure this is correctly named if it's /auth/profile
 
@@ -17,6 +20,40 @@ const app = express();
 // console.log(`NODE_ENV: ${nodeEnv}`); // For debugging
 
 // --- Core Middleware ---
+app.use(helmet());
+
+// CORS Configuration
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+
+    // Check if the origin is in the allowed list
+    if (corsAllowedOrigins && corsAllowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true, // If you need to allow cookies or authorization headers
+  optionsSuccessStatus: 200 // Some legacy browsers (IE11, various SmartTVs) choke on 204
+};
+app.use(cors(corsOptions)); // Use CORS with options
+
+// Rate Limiting for Authentication Routes
+// Apply to all requests starting with /auth/
+const authRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per `window` (here, per 15 minutes)
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  message: { message: 'Too many requests from this IP, please try again after 15 minutes.' },
+  // keyGenerator: (req, res) => req.ip, // Default, uses req.ip
+  // You might want to use `req.ips[0]` if behind a trusted proxy (see express-rate-limit docs)
+  // store: ... // You can configure a store for more persistent rate limiting across multiple servers/restarts
+});
+app.use('/auth', authRateLimiter); // Apply the limiter to all /auth routes
+
 // Parse JSON request bodies
 app.use(express.json());
 // Parse URL-encoded request bodies (optional, but good practice)
@@ -74,7 +111,8 @@ app.use((err, req, res, next) => {
   let message = err.message || 'An unexpected error occurred.';
 
   // Handle specific error types if needed
-  if (err.name === 'UnauthorizedError') { // Example: error from express-jwt if it were used directly
+  if (err.name === 'UnauthorizedError') {
+    // Example: error from express-jwt if it were used directly
     statusCode = 401;
     message = 'Invalid token or credentials.';
   }

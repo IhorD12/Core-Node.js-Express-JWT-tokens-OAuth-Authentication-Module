@@ -1,0 +1,34 @@
+# docker-compose.yml
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: modular-auth-app # You can name your image
+    container_name: modular-auth-app-container
+    restart: unless-stopped
+    ports:
+      - '3000:3000' # Map host port 3000 to container port 3000 (or your app's configured port)
+    env_file:
+      - .env # Pass environment variables from .env file to the container
+    volumes:
+      # For development, you might want to mount your source code
+      # to see changes live without rebuilding the image (if using nodemon).
+      # For production, it's generally better to copy files in Dockerfile.
+      # The current Dockerfile is geared more towards production builds.
+      # To enable live reload for development with nodemon:
+      # - Ensure nodemon is a dependency (not devDependency if used in Docker CMD)
+      # - Change CMD in Dockerfile to use nodemon: CMD [ "npm", "run", "dev" ]
+      # - Add the volume mount below:
+      # - .:/usr/src/app
+      # - /usr/src/app/node_modules # Anonymous volume to prevent host node_modules from overwriting container's
+      - .:/usr/src/app # Mounts the current directory into the container
+      - /usr/src/app/node_modules # Excludes node_modules from being overwritten by the host
+    environment:
+      - NODE_ENV=development # Or set to 'production' as needed
+      # You can override .env variables here or add more specific ones for Docker
+      # e.g., DATABASE_HOST=postgres_db (if you had a db service)
+    # To run with nodemon for development, uncomment the command below
+    # command: npm run dev
