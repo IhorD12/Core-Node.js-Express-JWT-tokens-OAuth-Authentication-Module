@@ -17,19 +17,22 @@ interface StrategyServices {
 }
 
 // Extract relevant options for Facebook from the generic config type
+// Adding providerName to the options expected by this function
 type FacebookStrategyOptionsFromConfig = Pick<
     ConfiguredOAuthProvider['options'],
     'clientID' | 'clientSecret' | 'callbackURL' | 'scope' | 'profileFields' |
-    'authorizationURL' | 'tokenURL' | 'profileURL'
+    'authorizationURL' | 'tokenURL' | 'profileURL' | 'providerName'
 >;
 
 const configureStrategy = (
     options: FacebookStrategyOptionsFromConfig,
     services: StrategyServices
 ): FacebookStrategy => {
+  const providerName = options.providerName || 'facebook'; // Fallback
+
   if (!options.clientID || !options.clientSecret || !options.callbackURL || !options.profileURL) {
-    const errMsg = 'Facebook Strategy: Missing critical options (clientID, clientSecret, callbackURL, profileURL).';
-    logger.error(errMsg, { optionsProvided: Object.keys(options) });
+    const errMsg = `${providerName} Strategy: Missing critical options (clientID, clientSecret, callbackURL, profileURL).`;
+    logger.error(errMsg, { provider: providerName, optionsProvided: Object.keys(options) });
     throw new Error(errMsg);
   }
   if (!services || !services.userService || !services.authService) {

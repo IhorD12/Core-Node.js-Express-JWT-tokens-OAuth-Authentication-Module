@@ -29,16 +29,26 @@ interface JwtStrategySetupOptions {
 }
 
 const configureStrategy = (
-  options: JwtStrategySetupOptions = {},
+  options: JwtStrategySetupOptions = {}, // Options could include a specific publicKey if needed, otherwise defaults to config
   services: StrategyServices
 ): JwtStrategy => {
-  const currentJwtSecret = options.jwtSecret || config.jwtSecret;
-
-  if (!currentJwtSecret) {
-    const errMsg = 'JWT_SECRET is not defined for JWT strategy.';
-    logger.error(errMsg);
-    throw new Error(errMsg);
+  let secretOrPublicKey: string;
+  if (config.jwtAlgorithm === 'RS256') {
+    if (!config.jwtPublicKey) {
+      const errMsg = 'JWT_PUBLIC_KEY is not configured for RS256 algorithm.';
+      logger.error(errMsg);
+      throw new Error(errMsg);
+    }
+    secretOrPublicKey = config.jwtPublicKey;
+  } else { // HS256
+    if (!config.jwtSecret) {
+      const errMsg = 'JWT_SECRET is not configured for HS256 algorithm.';
+      logger.error(errMsg);
+      throw new Error(errMsg);
+    }
+    secretOrPublicKey = config.jwtSecret;
   }
+
   if (!services || !services.userService) {
     const errMsg = 'userService must be provided to JWT strategy.';
     logger.error(errMsg);
@@ -47,13 +57,15 @@ const configureStrategy = (
 
   const jwtOptions: JwtStrategyOptions = {
     jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-    secretOrKey: currentJwtSecret,
+    secretOrKey: secretOrPublicKey,
+    algorithms: [config.jwtAlgorithm], // Specify algorithm for verification
   };
 
   return new JwtStrategy(jwtOptions,
     async (jwt_payload: AccessTokenPayload, done: VerifiedCallback) => {
-      logger.debug('JWT Payload received for validation', { sub: jwt_payload.sub, type: jwt_payload.type });
+      logger.debug('JWT Payload received for validation', { sub: jwt_payload.sub, type: jwt_payload.type, alg: config.jwtAlgorithm });
       try {
+        // Type check is already part of AccessTokenPayload if defined strictly
         if (jwt_payload.type !== 'access') {
           logger.warn('Invalid token type received by JWT strategy.', { type: jwt_payload.type });
           return done(null, false, { message: 'Invalid token type. Expected access token.' });

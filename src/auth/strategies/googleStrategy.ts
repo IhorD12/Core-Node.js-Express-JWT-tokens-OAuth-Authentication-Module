@@ -20,9 +20,11 @@ interface StrategyServices {
 // Options for GoogleStrategy, derived from what ConfiguredOAuthProvider.options provides
 // passport-google-oauth20's StrategyOptions already covers clientID, clientSecret, callbackURL, scope, etc.
 // We just need to ensure our ConfiguredOAuthProvider.options match this or are adapted.
+// Adding providerName to the options expected by this function
 type GoogleStrategyOptionsFromConfig = Pick<
     ConfiguredOAuthProvider['options'],
-    'clientID' | 'clientSecret' | 'callbackURL' | 'scope' | 'authorizationURL' | 'tokenURL' | 'userProfileURL'
+    'clientID' | 'clientSecret' | 'callbackURL' | 'scope' |
+    'authorizationURL' | 'tokenURL' | 'userProfileURL' | 'providerName'
 >;
 
 
@@ -30,9 +32,11 @@ const configureStrategy = (
     options: GoogleStrategyOptionsFromConfig,
     services: StrategyServices
 ): GoogleStrategy => {
+  const providerName = options.providerName || 'google'; // Fallback if not passed, though passportSetup should pass it
+
   if (!options.clientID || !options.clientSecret || !options.callbackURL || !options.userProfileURL) {
-    const errMsg = 'Google Strategy: Missing critical options (clientID, clientSecret, callbackURL, userProfileURL).';
-    logger.error(errMsg, { optionsProvided: Object.keys(options) });
+    const errMsg = `${providerName} Strategy: Missing critical options (clientID, clientSecret, callbackURL, userProfileURL).`;
+    logger.error(errMsg, { provider: providerName, optionsProvided: Object.keys(options) });
     throw new Error(errMsg);
   }
   if (!services || !services.userService || !services.authService) {
@@ -86,11 +90,16 @@ const configureStrategy = (
         const { accessToken: appAccessToken, refreshToken: appRefreshToken } =
             await services.authService.generateAndStoreAuthTokens(user);
 
-        // Pass an object containing our app-specific tokens and user profile to the callback
+        logger.info('OAuth login successful and tokens issued', { userId: user.id, provider: providerName });
         return done(null, { user, accessToken: appAccessToken, refreshToken: appRefreshToken });
 
       } catch (error: any) {
-        logger.error('Error in Google Strategy verification callback:', { message: error.message, stack: error.stack });
+        logger.warn('OAuth authentication failed during user processing', {
+            provider: providerName,
+            userIdFromProfile: profile ? profile.id : 'unknown',
+            error: error.message,
+            stack: error.stack // Log stack for unexpected errors
+        });
         return done(error);
       }
     }

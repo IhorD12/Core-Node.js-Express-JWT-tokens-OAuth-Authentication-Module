@@ -19,16 +19,18 @@ interface StrategyServices {
 type GithubStrategyOptionsFromConfig = Pick<
     ConfiguredOAuthProvider['options'],
     'clientID' | 'clientSecret' | 'callbackURL' | 'scope' |
-    'authorizationURL' | 'tokenURL' | 'userProfileURL' | 'customHeaders' // userEmailURL if used
+    'authorizationURL' | 'tokenURL' | 'userProfileURL' | 'customHeaders' | 'providerName' // userEmailURL if used
 >;
 
 const configureStrategy = (
     options: GithubStrategyOptionsFromConfig,
     services: StrategyServices
 ): GithubStrategy => {
+  const providerName = options.providerName || 'github'; // Fallback
+
   if (!options.clientID || !options.clientSecret || !options.callbackURL || !options.userProfileURL) {
-    const errMsg = 'GitHub strategy requires clientID, clientSecret, callbackURL, and userProfileURL in options.';
-    logger.error(errMsg, { optionsProvided: Object.keys(options) });
+    const errMsg = `${providerName} strategy requires clientID, clientSecret, callbackURL, and userProfileURL in options.`;
+    logger.error(errMsg, { provider: providerName, optionsProvided: Object.keys(options) });
     throw new Error(errMsg);
   }
   if (!services || !services.userService || !services.authService) {
@@ -76,10 +78,16 @@ const configureStrategy = (
         const { accessToken: appAccessToken, refreshToken: appRefreshToken } =
             await services.authService.generateAndStoreAuthTokens(user);
 
+        logger.info('OAuth login successful and tokens issued', { userId: user.id, provider: providerName });
         return done(null, { user, accessToken: appAccessToken, refreshToken: appRefreshToken });
 
       } catch (error: any) {
-        logger.error('Error in GitHub Strategy verification callback:', { message: error.message, stack: error.stack });
+        logger.warn('OAuth authentication failed during user processing', {
+            provider: providerName,
+            userIdFromProfile: profile ? profile.id : 'unknown',
+            error: error.message,
+            stack: error.stack
+        });
         return done(error);
       }
     }

@@ -79,11 +79,13 @@ export class TwoFactorAuthService {
   /**
    * Verifies a TOTP token provided by the user.
    * @param user The user attempting to verify.
+   * @param user The user attempting to verify.
    * @param token The TOTP token from the authenticator app.
+   * @param {string} [clientIp] - Optional client IP address for logging.
    * @returns {Promise<boolean>} True if the token is valid.
    */
-  async verifyToken(user: UserProfile, token: string): Promise<boolean> {
-    logger.warn(`TwoFactorAuthService.verifyToken() for user ${user.id} with token ${token} - STUBBED.`);
+  async verifyToken(user: UserProfile, token: string, clientIp?: string): Promise<boolean> {
+    logger.warn(`TwoFactorAuthService.verifyToken() for user ${user.id} with token ${token} - STUBBED.`, { ip: clientIp });
     // 1. Retrieve user's stored twoFactorSecret.
     // const storedSecret = user.twoFactorSecret; // Assuming it's loaded on UserProfile
     // if (!storedSecret) return false;
@@ -93,19 +95,21 @@ export class TwoFactorAuthService {
     //    e.g., await userStore.enableTwoFactor(user.id, storedSecret); // Pass secret to confirm it's for this setup.
     //    This method needs to be added to UserStoreAdapter.
     if (token === '123456') { // Mock verification for any token "123456"
-        logger.info(`Conceptual: Enabling 2FA for user ${user.id} after successful verification.`);
+        logger.info(`Conceptual: Enabling 2FA for user ${user.id} after successful verification.`, { ip: clientIp });
         return true;
     }
+    logger.warn('2FA verification failed (stubbed logic).', { userId: user.id, tokenProvided: token, ip: clientIp });
     return false;
   }
 
   /**
    * Disables 2FA for a user.
    * @param user The user for whom to disable 2FA.
+   * @param {string} [clientIp] - Optional client IP address for logging.
    * @returns {Promise<void>}
    */
-  async disable(user: UserProfile): Promise<void> {
-    logger.warn(`TwoFactorAuthService.disable() for user ${user.id} - STUBBED.`);
+  async disable(user: UserProfile, clientIp?: string): Promise<void> {
+    logger.warn(`TwoFactorAuthService.disable() for user ${user.id} - STUBBED.`, { ip: clientIp });
     // 1. Clear the twoFactorSecret and set isTwoFactorEnabled = false for the user.
     //    e.g., await userStore.disableTwoFactor(user.id);
     //    This method needs to be added to UserStoreAdapter.
