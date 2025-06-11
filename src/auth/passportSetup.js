@@ -1,9 +1,12 @@
 // auth/passportSetup.js
 const passport = require('passport');
-const configureJwtStrategy = require('./jwtStrategy');
-const configureGoogleStrategy = require('./googleStrategy');
-const configureFacebookStrategy = require('./facebookStrategy');
-// const { findUserById } = require('./mockUserStore'); // Not strictly needed here but often in serializer/deserializer
+const { oauthProviders, jwtSecret } = require('../../config'); // Get new oauthProviders config and jwtSecret for JWT strategy
+const userService = require('../services/userService'); // Services needed by strategies
+const authService = require('../services/authService'); // Services needed by strategies
+const logger = require('../../config/logger'); // Import logger
+
+// Path to strategies directory (adjust if passportSetup.js moves)
+const strategiesBasePath = './strategies/';
 
 /**
  * @fileoverview Initializes and configures Passport.js with all authentication strategies.
@@ -21,16 +24,43 @@ const initializePassport = (app) => {
   // However, it's common practice to initialize it.
   if (app) {
     app.use(passport.initialize());
-    // app.use(passport.session()); // Not needed for JWT stateless auth
+    // app.use(passport.session()); // Still not needed for JWT stateless auth
   }
 
-  // Configure strategies
-  configureJwtStrategy(passport);
-  configureGoogleStrategy(passport);
-  configureFacebookStrategy(passport);
+  // Services to pass to strategy configurations
+  const services = { userService, authService };
+
+  // Configure JWT Strategy (remains largely the same but uses the new structure)
+  try {
+    const configureJwtStrategy = require(`${strategiesBasePath}jwtStrategy`);
+    passport.use('jwt', configureJwtStrategy({ jwtSecret }, services)); // 'jwt' is the name used by authMiddleware
+    logger.info('JWT strategy initialized.');
+  } catch (e) {
+    logger.error("Failed to load JWT strategy:", { message: e.message, stack: e.stack });
+    // Decide if this is a fatal error for your app
+  }
+
+  // Dynamically configure OAuth strategies
+  if (oauthProviders && Array.isArray(oauthProviders) && oauthProviders.length > 0) {
+    oauthProviders.forEach(providerConfig => {
+      if (!providerConfig.options || !providerConfig.options.clientID) {
+        logger.warn(`OAuth provider ${providerConfig.name} is missing clientID, skipping.`);
+        return;
+      }
+      try {
+        const strategyConfigurator = require(providerConfig.strategyModulePath.replace('../auth/', './'));
+        passport.use(providerConfig.name, strategyConfigurator(providerConfig.options, services));
+        logger.info(`Passport strategy for '${providerConfig.name}' initialized.`);
+      } catch (e) {
+        logger.error(`Failed to load or configure strategy for ${providerConfig.name}:`, { message: e.message, stack: e.stack });
+        // Optionally, decide if this is a fatal error
+      }
+    });
+  } else {
+    logger.warn("No OAuth providers configured or configuration is invalid. Skipping dynamic OAuth strategy setup.");
+  }
 
   // NO Passport session serialization/deserialization needed for JWT-based stateless auth.
-  // When using JWTs, each request is authenticated independently based on the token.
   // passport.serializeUser((user, done) => {
   //   done(null, user.id);
   // });
@@ -44,7 +74,7 @@ const initializePassport = (app) => {
   //   }
   // });
 
-  console.log('Passport initialized with JWT, Google, and Facebook strategies.');
+  // console.log('Passport initialization complete.'); // More generic message
 };
 
 module.exports = initializePassport;

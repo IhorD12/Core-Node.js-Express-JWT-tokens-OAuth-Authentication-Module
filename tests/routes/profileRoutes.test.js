@@ -1,9 +1,12 @@
 // tests/routes/profileRoutes.test.js
 const request = require('supertest');
 const app = require('../../src/app'); // Our Express app
-const { generateToken } = require('../../src/auth/tokenUtils');
-const { findUserById, clearUsers, findOrCreateUser } = require('../../src/auth/mockUserStore');
+const authService = require('../../src/services/authService'); // generateToken is now here (deprecated)
+const userService = require('../../src/services/userService'); // User methods are here
+const MockUserStore = require('../../src/auth/mockUserStore'); // Import the class
 const { jwtSecret } = require('../../config'); // For direct JWT manipulation if needed for specific tests
+
+const userStoreInstance = new MockUserStore(); // Instance for test utilities
 const jwt = require('jsonwebtoken'); // For creating expired tokens
 
 describe('Profile Routes Integration Tests (/auth/profile)', () => {
@@ -35,8 +38,8 @@ describe('Profile Routes Integration Tests (/auth/profile)', () => {
     };
     // findOrCreateUser will create an ID like 'testprovider-profileUser123'
     // The token's 'sub' claim will be this user.id.
-    mockUser = await findOrCreateUser(userProfile, 'testprovider');
-    validToken = generateToken(mockUser);
+    mockUser = await userService.findOrCreateUser(userProfile, 'testprovider'); // Use userService
+    validToken = authService.generateToken(mockUser); // Use authService for the deprecated generateToken
   });
 
   it('should return 401 Unauthorized if no token is provided', async () => {
@@ -78,7 +81,7 @@ describe('Profile Routes Integration Tests (/auth/profile)', () => {
   it('should return 401 Unauthorized if token is valid but user not found in store', async () => {
     const userNotInStore = { id: 'nonexistent-user-456', email: 'no@example.com' };
     // This user is not saved to mockUserStore
-    const tokenForNonExistentUser = generateToken(userNotInStore);
+    const tokenForNonExistentUser = authService.generateToken(userNotInStore); // Use authService
 
     const response = await request(app)
       .get('/auth/profile')
@@ -112,7 +115,7 @@ describe('Profile Routes Integration Tests (/auth/profile)', () => {
     expect(response.body.user.email).toBe(mockUser.email);
 
     // Verify against the object structure our mockUserStore provides
-    const userFromStore = await findUserById(mockUser.id);
+    const userFromStore = await userService.findUserById(mockUser.id); // Use userService
     expect(response.body.user).toEqual(
       expect.objectContaining({
         id: userFromStore.id,
