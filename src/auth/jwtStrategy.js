@@ -1,7 +1,7 @@
 // auth/jwtStrategy.js
 const passport = require('passport');
 const { Strategy: JwtStrategy, ExtractJwt } = require('passport-jwt');
-const { jwtSecret } = require('../config');
+const { jwtSecret } = require('../../config');
 const { findUserById } = require('./mockUserStore'); // Using the mock store
 
 /**
@@ -10,7 +10,9 @@ const { findUserById } = require('./mockUserStore'); // Using the mock store
  */
 
 if (!jwtSecret) {
-  throw new Error('JWT_SECRET is not defined in the environment variables. Passport JWT Strategy cannot be set up.');
+  throw new Error(
+    'JWT_SECRET is not defined in the environment variables. Passport JWT Strategy cannot be set up.'
+  );
 }
 
 const options = {
@@ -28,6 +30,11 @@ const options = {
  */
 const strategy = new JwtStrategy(options, async (jwt_payload, done) => {
   try {
+    // Check if the token is specifically an access token
+    if (jwt_payload.type !== 'access') {
+      return done(null, false, { message: 'Invalid token type. Expected access token.' });
+    }
+
     // jwt_payload.sub contains the user ID stored during token generation
     const user = await findUserById(jwt_payload.sub);
 
@@ -51,7 +58,7 @@ const strategy = new JwtStrategy(options, async (jwt_payload, done) => {
  */
 module.exports = (passportInstance) => {
   if (!passportInstance || typeof passportInstance.use !== 'function') {
-     throw new Error("A valid Passport instance must be provided.");
+    throw new Error('A valid Passport instance must be provided.');
   }
   passportInstance.use('jwt', strategy); // Use 'jwt' as the strategy name
 };

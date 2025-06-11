@@ -1,0 +1,14 @@
+# .dockerignore
+node_modules
+npm-debug.log
+Dockerfile
+docker-compose.yml
+.dockerignore
+.git
+.gitignore
+README.md
+# Add other files/directories that should not be copied into the Docker image
+tests/
+scripts/
+# Keep .env.example, but not .env (as it's passed via docker-compose)
+.env

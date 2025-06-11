@@ -1,0 +1,9 @@
+# .prettierignore
+node_modules
+dist
+coverage
+# Add other files/directories to ignore for Prettier
+docs/openapi.yaml
+# Existing README.md if you don't want it formatted by prettier for now
+README.md
+CHANGELOG.md

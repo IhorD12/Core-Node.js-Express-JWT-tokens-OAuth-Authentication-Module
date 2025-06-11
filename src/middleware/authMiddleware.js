@@ -31,9 +31,9 @@ const verifyToken = (req, res, next) => {
         message = info.message;
       }
       if (info && info.name === 'TokenExpiredError') {
-         message = 'Token expired. Please log in again.';
+        message = 'Token expired. Please log in again.';
       } else if (info && info.name === 'JsonWebTokenError') {
-         message = 'Invalid token. Please log in again.';
+        message = 'Invalid token. Please log in again.';
       }
 
       return res.status(401).json({ message });

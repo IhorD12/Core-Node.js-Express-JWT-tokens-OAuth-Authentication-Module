@@ -27,7 +27,7 @@ router.get('/profile', verifyToken, (req, res) => {
   // Our mockUserStore user object is safe.
   res.json({
     message: 'Profile retrieved successfully!',
-    user: req.user // req.user is set by the jwtStrategy via verifyToken
+    user: req.user, // req.user is set by the jwtStrategy via verifyToken
   });
 });
 
